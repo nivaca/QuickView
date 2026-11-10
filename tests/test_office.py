@@ -35,6 +35,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
 import renderers  # noqa: E402
+from renderers import office as r_office, suite as r_suite  # noqa: E402 — patched where read
 
 NS = (
     'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" '
@@ -197,12 +198,12 @@ class SuiteStandIn(unittest.TestCase):
     """office_pages with a fake soffice in place of LibreOffice."""
 
     def setUp(self):
-        self._saved = (renderers.OFFICE_SUITES, renderers.OFFICE_SUITE_TIMEOUT)
+        self._saved = (r_suite.OFFICE_SUITES, r_suite.OFFICE_SUITE_TIMEOUT)
         self.tmp = tempfile.TemporaryDirectory()
         self.doc = build_docx(para("hello") + para("world"))
 
     def tearDown(self):
-        renderers.OFFICE_SUITES, renderers.OFFICE_SUITE_TIMEOUT = self._saved
+        r_suite.OFFICE_SUITES, r_suite.OFFICE_SUITE_TIMEOUT = self._saved
         self.tmp.cleanup()
 
     def stand_in(self, script: str) -> str:
@@ -210,15 +211,15 @@ class SuiteStandIn(unittest.TestCase):
         with open(path, "w") as fh:
             fh.write("#!/bin/sh\n" + script)
         os.chmod(path, os.stat(path).st_mode | stat.S_IXUSR)
-        renderers.OFFICE_SUITES = (path,)
+        r_suite.OFFICE_SUITES = (path,)
         return path
 
     def built_in_count(self) -> int:
-        renderers.OFFICE_SUITES = ()
+        r_suite.OFFICE_SUITES = ()
         return len(pages(self.doc))
 
     def test_no_suite_uses_the_built_in_layout(self):
-        renderers.OFFICE_SUITES = ("/nonexistent/soffice",)
+        r_suite.OFFICE_SUITES = ("/nonexistent/soffice",)
         self.assertEqual(renderers.office_suite(), "")
         self.assertGreater(len(pages(self.doc)), 0)
 
@@ -231,7 +232,7 @@ class SuiteStandIn(unittest.TestCase):
         # soffice is a launcher that forks the converter: the timeout has
         # to take down the child as well, or it runs on in the jail.
         pidfile = os.path.join(self.tmp.name, "child.pid")
-        renderers.OFFICE_SUITE_TIMEOUT = 1
+        r_suite.OFFICE_SUITE_TIMEOUT = 1
         expected = self.built_in_count()
         self.stand_in("sleep 60 &\necho $! > %s\nwait\n" % pidfile)
         started = time.monotonic()
@@ -355,11 +356,11 @@ class DecksWithoutTheSuite(unittest.TestCase):
     thumbnail instead — which happens only if the page path refuses it."""
 
     def setUp(self):
-        self._saved = renderers.OFFICE_SUITES
-        renderers.OFFICE_SUITES = ()
+        self._saved = r_suite.OFFICE_SUITES
+        r_suite.OFFICE_SUITES = ()
 
     def tearDown(self):
-        renderers.OFFICE_SUITES = self._saved
+        r_suite.OFFICE_SUITES = self._saved
 
     def refused(self, members):
         buf = io.BytesIO()
@@ -507,18 +508,18 @@ class FlatpakSuite(unittest.TestCase):
         os.makedirs(fonts)
         os.symlink(self.collection, os.path.join(fonts, "Junicode"))
         os.symlink(os.path.join(d, "gone"), os.path.join(fonts, "Dangling"))
-        saved = (renderers.OFFICE_SUITES, renderers._flatpak_installations,
-                 renderers.FLATPAK_SUITE_ROOT, os.environ.get("XDG_DATA_HOME"))
-        renderers.OFFICE_SUITES = ("/nonexistent/soffice", "flatpak:" + self.APP)
-        renderers._flatpak_installations = lambda: (self.user, self.system)
-        renderers.FLATPAK_SUITE_ROOT = os.path.join(d, "no-jail-here")
+        saved = (r_suite.OFFICE_SUITES, r_suite._flatpak_installations,
+                 r_suite.FLATPAK_SUITE_ROOT, os.environ.get("XDG_DATA_HOME"))
+        r_suite.OFFICE_SUITES = ("/nonexistent/soffice", "flatpak:" + self.APP)
+        r_suite._flatpak_installations = lambda: (self.user, self.system)
+        r_suite.FLATPAK_SUITE_ROOT = os.path.join(d, "no-jail-here")
         os.environ["XDG_DATA_HOME"] = os.path.join(d, "data")
         self.addCleanup(self.restore, saved)
 
     @staticmethod
     def restore(saved):
-        (renderers.OFFICE_SUITES, renderers._flatpak_installations,
-         renderers.FLATPAK_SUITE_ROOT, data) = saved
+        (r_suite.OFFICE_SUITES, r_suite._flatpak_installations,
+         r_suite.FLATPAK_SUITE_ROOT, data) = saved
         if data is None:
             os.environ.pop("XDG_DATA_HOME", None)
         else:
@@ -550,7 +551,7 @@ class FlatpakSuite(unittest.TestCase):
         with open(distro, "w") as fh:
             fh.write("#!/bin/sh\n")
         os.chmod(distro, 0o755)
-        renderers.OFFICE_SUITES = (distro, "flatpak:" + self.APP)
+        r_suite.OFFICE_SUITES = (distro, "flatpak:" + self.APP)
         self.assertEqual(renderers.office_suite(), distro)
         self.assertEqual(renderers.flatpak_suite_binds(), [])  # /usr has it
 
@@ -587,13 +588,13 @@ class FlatpakSuite(unittest.TestCase):
         ])
 
     def test_inside_the_jail_the_bound_trees_are_used(self):
-        root = renderers.FLATPAK_SUITE_ROOT
+        root = r_suite.FLATPAK_SUITE_ROOT
         os.makedirs(os.path.dirname(root), exist_ok=True)
         os.symlink(os.path.dirname(self.files), root)  # stands in for the binds
         os.rename(root + "/files", root + "/app")
         os.makedirs(root + "/runtime")
         os.makedirs(root + "/user-fonts")
-        renderers._flatpak_installations = lambda: ()  # host search must not be needed
+        r_suite._flatpak_installations = lambda: ()  # host search must not be needed
         soffice, flatpak = renderers._suite()
         self.assertEqual(soffice, root + "/app/libreoffice/program/soffice")
         self.assertEqual(flatpak, (root + "/app", root + "/runtime",
@@ -633,9 +634,9 @@ class RealSuite(unittest.TestCase):
             raise AssertionError("fell back to the built-in layout")
             yield  # pragma: no cover — makes this a generator
 
-        saved = renderers._pages_via_qtextdocument
-        renderers._pages_via_qtextdocument = refuse
-        self.addCleanup(setattr, renderers, "_pages_via_qtextdocument", saved)
+        saved = r_office._pages_via_qtextdocument
+        r_office._pages_via_qtextdocument = refuse
+        self.addCleanup(setattr, r_office, "_pages_via_qtextdocument", saved)
         doc = build_docx(para("hello " * 50) + para("x", ppr="<w:pageBreakBefore/>"))
         out = pages(doc)
         self.assertEqual(len(out), 2)

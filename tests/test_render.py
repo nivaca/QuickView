@@ -212,7 +212,7 @@ def _fit(img, max_w, max_h):
 
 
 class PsdDecoding(unittest.TestCase):
-    """Photoshop files, which Qt cannot read and renderers.py parses itself."""
+    """Photoshop files, which Qt cannot read and renderers/images.py parses itself."""
 
     def decoded(self, data, max_w=400, max_h=400):
         """QuickView's own PSD parser, called directly.

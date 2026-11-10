@@ -427,7 +427,7 @@ class Themes(unittest.TestCase):
         self.assertEqual(self.page("nonsense"), default["bg"])
 
     def test_the_settings_list_matches_the_palettes(self):
-        # config.py names the themes a person may type; renderers.py owns
+        # config.py names the themes a person may type; renderers/ owns
         # what they look like. A palette with no setting is unreachable, and
         # a setting with no palette renders as the default with no warning.
         import config

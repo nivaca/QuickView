@@ -585,8 +585,11 @@ Then bind Space in Dolphin (one-time):
   frames, decoding from a passed file descriptor
 - `media_worker.py` — the jailed player: decodes and plays audio/video, and
   streams video frames back through shared memory
-- `renderers.py` — the decoders themselves, shared by the workers and the
-  standalone scripts
+- `renderers/` — the decoders themselves, shared by the workers and the
+  standalone scripts, one module per family: `images`, `pdf`, `highlight`,
+  `archives`, `office` (documents and decks), `suite` (running LibreOffice),
+  `sheets`, `epub` and `markdown`, plus `base` for the shared limits and
+  encoders. `import renderers` still reaches every name
 - `render.py`, `render_pdf.py` — standalone one-shot versions of the image
   and PDF renderers, kept for reproducing a render by hand
 - `bin/quickview` — launcher: compiled fast path, then `client.py`, then a
@@ -652,7 +655,8 @@ Issues and pull requests are welcome. Two things worth knowing before you
 open one:
 
 - **Nothing that parses an untrusted file may run in the daemon.** New
-  formats go in `renderers.py` and are reached through a worker op; the
+  formats go in a `renderers/` module and are reached through a worker op
+  (one function in `worker.py`'s `OPS` table); the
   daemon only ever sees PNG bytes or decoded frames it asked for.
 - The daemon is long-lived. Anything allocated per preview has to be freed
   per preview — it is expected to run for weeks without restarting.
