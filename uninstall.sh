@@ -24,10 +24,13 @@ USAGE
     esac
 done
 
-# The daemon first: disabling before the unit file goes away is what stops
-# systemd leaving a dangling symlink in graphical-session.target.wants.
+# The daemon first: disabling before the unit files go away is what stops
+# systemd leaving dangling symlinks in sockets.target.wants (and, from an
+# older install, graphical-session.target.wants).
 if command -v systemctl >/dev/null 2>&1; then
+    systemctl --user disable --now quickview.socket 2>/dev/null || true
     systemctl --user disable --now quickview.service 2>/dev/null || true
+    rm -f "$HOME/.config/systemd/user/quickview.socket"
     rm -f "$HOME/.config/systemd/user/quickview.service"
     systemctl --user daemon-reload 2>/dev/null || true
 fi

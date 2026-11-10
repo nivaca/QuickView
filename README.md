@@ -27,9 +27,14 @@ just like Quick Look on a multi-file selection.
 
 ## Features
 
-- **Instant.** A resident daemon keeps Qt loaded, so the panel appears in
-  ~20 ms instead of the ~1 s a cold start costs. The launcher hands the path
-  over in about 4 ms through a compiled client that loads no interpreter.
+- **Instant, and gone when idle.** A daemon keeps Qt loaded, so a preview
+  appears in ~50 ms instead of the ~250–300 ms a cold start costs. Like
+  macOS's Quick Look services it is started on demand — systemd holds its
+  socket and starts it on the first Space press — and by default it exits
+  after 10 minutes without a preview, giving its ~130 MB back. It can also
+  stay resident, or not linger at all (see [The daemon](#the-daemon)). The
+  launcher hands the path over in about 4 ms through a compiled client that
+  loads no interpreter.
 - **Every parser runs in a sandbox.** Images, PDFs, animations, audio,
   video, archives, office documents and the syntax highlighter all decode
   inside a bubblewrap jail with no network and no filesystem — the file
@@ -466,9 +471,14 @@ timings — with `log_level = debug` under `[logging]` in the settings file,
 or for a single run:
 
 ```bash
-systemctl --user stop quickview.service
+systemctl --user stop quickview.socket quickview.service
 QUICKVIEW_LOG_LEVEL=debug ./bin/quickview --daemon
+systemctl --user start quickview.socket   # afterwards
 ```
+
+Both units, not just the service: while the socket is listening, a daemon
+started by hand finds it, takes it for a running instance and exits — and
+systemd starts the real one on that very connection.
 
 Crash reports are not affected by this setting: a native crash always lands
 in `crash.log`.
@@ -493,6 +503,8 @@ the daemon starts.
 | `[logging] log_level` | `info` | How much the daemon writes to the log and the journal: `error`, `warning`, `info`, `debug` |
 | `[cache] disk_cache_mb` | `256` | Rendered previews kept on disk; `0` disables it |
 | `[cache] memory_cache_mb` | `96` | Decoded pixmaps kept in memory |
+| `[daemon] daemon_mode` | `on-demand` | `on-demand` (exit when idle), `resident` (stay until logout) or `off` (exit when the preview closes) — see [The daemon](#the-daemon) |
+| `[daemon] idle_minutes` | `10` | `on-demand` only: minutes without a preview open before the daemon exits |
 
 Each has a matching `QUICKVIEW_*` environment variable (`QUICKVIEW_CODE_STYLE`,
 `QUICKVIEW_BOOK_THEME`, `QUICKVIEW_PDF_MAX_PAGES`, …) that wins over the file,
@@ -561,15 +573,17 @@ the virtualenv too); the checkout itself is never touched.
 `install.sh` checks for `bwrap`, builds the virtualenv, installs PySide6
 (a few hundred MB on first run), compiles the fast-path client if `rustc` is
 present, registers the Dolphin service menu, puts a `quickview` launcher on
-your `PATH`, and enables the background daemon as a systemd user service.
+your `PATH`, and enables `quickview.socket`, which starts the daemon on the
+first preview (see [The daemon](#the-daemon)).
 
 Then bind Space in Dolphin (one-time):
 **Menu → Configure → Configure Keyboard Shortcuts… → search "Quick Look" → Custom → Space**
 
 ## How it works
 
-- `quickview.py` — the PySide6 app; runs as a resident daemon (systemd user
-  service `quickview.service`, started at login) so previews open in ~20 ms.
+- `quickview.py` — the PySide6 app; runs as a daemon (`quickview.service`,
+  started by `quickview.socket` on the first preview) so previews open in
+  ~50 ms.
   It holds the panel window, the IPC socket and the dispatch from file type
   to view; the views themselves are mixins in `view_image.py`,
   `view_document.py` (PDF, Markdown, EPUB, contents, find), `view_media.py`,
@@ -607,16 +621,50 @@ Then bind Space in Dolphin (one-time):
 - `.venv/` — self-contained PySide6 install, created by `install.sh` (no
   system packages touched)
 
-The daemon idles at ~300 MB, which is the price of keeping Qt loaded — and
-keeping Qt loaded is what makes previews open in ~20 ms instead of ~1 s.
+## The daemon
+
+macOS has a Finder that is always running, and Quick Look's panel lives
+inside it; the decoders run in separate services that launchd starts on
+demand and lets exit when idle. Dolphin cannot host QuickView's panel, so
+QuickView brings a process of its own: the daemon keeps Qt and the panel
+loaded, and the jailed workers play the part of Quick Look's decoder
+services.
+
+What keeping it costs and saves, measured with a system PySide6 (whose Qt
+libraries Plasma already has in memory):
+
+| | |
+|---|---|
+| Starting Python, Qt and the panel from nothing | ~120 ms |
+| Booting a jailed worker with no spare ready | ~110 ms |
+| A preview with no daemon running | ~250–300 ms |
+| A preview with the daemon up | ~35–70 ms |
+| Memory the daemon holds while it runs | ~130 MB |
+
+`[daemon] daemon_mode` decides the trade:
+
+- **`on-demand`** (the default) — systemd listens on QuickView's socket from
+  login and starts the daemon on the first Space press; after
+  `idle_minutes` (10) without a preview open it exits, and the next press
+  starts it again. The press that starts it is never lost: systemd queues
+  it until the daemon is up to read it. This is the macOS model.
+- **`resident`** — the same start, but once up it stays until logout.
+- **`off`** — no background process to speak of: it exits as soon as the
+  preview closes, so every preview pays the cold start.
+
+The setting applies as soon as the file is saved, like every other. Without
+systemd the daemon is started at login by XDG autostart and, once it has
+exited, by the launcher on the next preview; the modes behave the same.
 
 ## Notes
 
 - The venv must be built with the **system** Python (`/usr/bin/python3`),
   not Miniconda — conda's bundled Kerberos libraries conflict with Qt's
   networking libraries on Arch.
-- Uninstall: `systemctl --user disable --now quickview.service`, then
+- Uninstall: `./uninstall.sh` does all of this. By hand:
+  `systemctl --user disable --now quickview.socket quickview.service`, then
   delete this folder plus
+  `~/.config/systemd/user/quickview.socket`,
   `~/.config/systemd/user/quickview.service`,
   `~/.local/share/kio/servicemenus/quickview-servicemenu.desktop`,
   `~/.local/bin/quickview`, and the cache/log dirs

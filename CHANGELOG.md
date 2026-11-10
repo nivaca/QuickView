@@ -5,6 +5,38 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 2026-11-10 — the daemon on demand
+
+### Changed
+
+- **The daemon starts on demand and exits when idle, like macOS's Quick
+  Look services.** It used to start at login and stay until logout,
+  holding ~130 MB to save ~200 ms per preview (a cold start measures
+  ~250–300 ms, not the ~1 s the README claimed). `install.sh` now installs
+  `quickview.socket`: systemd listens on QuickView's socket from login and
+  starts the daemon on the first connection, queueing that request until
+  the daemon reads it, so no Space press is ever lost. The old
+  start-at-login service is disabled on upgrade.
+- **The daemon is optional.** `[daemon] daemon_mode` chooses: `on-demand`
+  (the default) exits after `idle_minutes` (10) without a preview open;
+  `resident` stays once started, as before; `off` exits as soon as the
+  preview closes, so nothing lingers between previews. Applies when the
+  file is saved. Without systemd, XDG autostart and the launcher start the
+  daemon, and the modes behave the same.
+
+### Fixed
+
+- **A socket systemd owns is never deleted.** `QLocalServer`, given a
+  descriptor, removes the socket file when it closes, as if it had created
+  it — which after the first idle exit would leave systemd listening on a
+  path no client can reach. Connections on systemd's socket are accepted
+  directly and handed to the same code as `QLocalSocket`s, and the file
+  stays.
+- **A socket-activated daemon does not mistake itself for another.** The
+  single-instance check connects to the socket; started by systemd, it
+  would reach its own and exit. It is skipped when systemd passed the
+  socket.
+
 ## 2026-11-10 — speed and structure
 
 ### Added

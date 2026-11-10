@@ -27,6 +27,7 @@ different file switches the preview.
 
 import html
 import os
+import socket
 import sys
 from collections import OrderedDict
 
@@ -39,7 +40,7 @@ import theme
 
 from PySide6.QtCore import (
     Qt, QUrl, QEvent, QPoint, QSize, QTimer, QFileInfo, QFileSystemWatcher,
-    QMimeDatabase,
+    QMimeDatabase, QSocketNotifier,
 )
 from PySide6.QtGui import (
     QGuiApplication, QKeySequence, QRegion,
@@ -222,7 +223,8 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         )
 
     def dismiss(self, reason: str = "request"):
-        """Hide the preview but keep the process resident for instant reuse."""
+        """Hide the preview; the process stays for as long as daemon_mode
+        says (see manage_lifetime)."""
         if self.isVisible():
             log.debug("dismissed (%s)", reason)
         self.clear_content()
@@ -230,6 +232,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         # The next preview starts centred again, whatever this one was
         # dragged to.
         self._panel_pos = None
+        self.arm_idle_exit()
 
     def closeEvent(self, event):
         event.ignore()
@@ -256,6 +259,47 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             # palette anyway.
             self.setStyleSheet(PANEL_STYLE.substitute(self.theme))
         return super().event(event)
+
+    # ------------------------------------------------------------ lifetime
+    # How long the process outlives a preview, per SETTINGS["daemon_mode"]:
+    # on-demand exits after idle_minutes with no preview open, off as soon
+    # as the preview closes, resident never. Under systemd the socket stays
+    # open when the process exits, so the next Space press starts it again
+    # rather than going unanswered. Switched on by main() alone: a window
+    # made anywhere else — a test's, say — must not quit the application.
+
+    def manage_lifetime(self, exit_app=None):
+        self._exit_app = exit_app or QApplication.instance().quit
+        self._idle_exit = QTimer(self)
+        self._idle_exit.setSingleShot(True)
+        self._idle_exit.timeout.connect(self._exit_if_idle)
+        if not self.isVisible():
+            self.arm_idle_exit()
+
+    def arm_idle_exit(self):
+        """Start the countdown to exit; for when no preview is open."""
+        timer = getattr(self, "_idle_exit", None)
+        if timer is None:
+            return  # not the daemon's window
+        timer.stop()
+        mode = SETTINGS["daemon_mode"]
+        if mode == "resident":
+            return
+        timer.start(0 if mode == "off" else SETTINGS["idle_minutes"] * 60_000)
+
+    def disarm_idle_exit(self):
+        timer = getattr(self, "_idle_exit", None)
+        if timer is not None:
+            timer.stop()
+
+    def _exit_if_idle(self):
+        if self.isVisible():
+            return  # a preview opened in the meantime
+        mode = SETTINGS["daemon_mode"]
+        log.info("exiting (daemon_mode = %s%s)", mode,
+                 f", idle {SETTINGS['idle_minutes']} min"
+                 if mode == "on-demand" else "")
+        self._exit_app()
 
     # ------------------------------------------------------------ settings
     # The config file is re-read when it changes, so a setting takes effect
@@ -304,6 +348,8 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             self.apply_panel_theme(SETTINGS["panel_theme"])
         if "disk_cache_mb" in changed:
             prune_cache()  # a smaller cap applies now, not after more writes
+        if changed & {"daemon_mode", "idle_minutes"} and not self.isVisible():
+            self.arm_idle_exit()  # count down by the new rule
         return changed
 
     def apply_panel_theme(self, name: str):
@@ -627,6 +673,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self.show_file(self.selection[self.sel_index])
 
     def show_file(self, path: str):
+        self.disarm_idle_exit()
         path = os.path.abspath(path)
         self.current_path = path
         self.clear_content()
@@ -795,6 +842,68 @@ def daemon_already_running() -> bool:
     return True
 
 
+def systemd_listener(environ=os.environ, pid: int = None, fd: int = 3):
+    """The listening socket systemd handed this process, or None.
+
+    Socket activation (sd_listen_fds(3)): systemd binds the socket itself,
+    keeps it open across restarts of the service, and starts the service
+    on the first connection, passing the socket as descriptor 3. It is
+    ours only if LISTEN_PID names this process. The variables are cleared
+    so nothing started from here believes it was passed a socket too.
+    """
+    if environ.get("LISTEN_PID") != str(pid or os.getpid()):
+        return None
+    try:
+        count = int(environ.get("LISTEN_FDS", "0"))
+    except ValueError:
+        return None
+    for name in ("LISTEN_PID", "LISTEN_FDS", "LISTEN_FDNAMES"):
+        environ.pop(name, None)
+    if count < 1:
+        return None
+    try:
+        sock = socket.socket(fileno=fd)
+    except OSError:
+        return None
+    if sock.family != socket.AF_UNIX or sock.type != socket.SOCK_STREAM:
+        sock.detach()  # not ours to close
+        return None
+    sock.setblocking(False)
+    os.set_inheritable(fd, False)  # never into a worker
+    return sock
+
+
+def accept_from(listener: socket.socket, handle, parent):
+    """Serve a listening socket systemd owns, handing each connection to
+    handle() as a QLocalSocket — the same thing QLocalServer would give.
+
+    Not QLocalServer.listen(descriptor): Qt then removes the socket file
+    when the server closes, as it would one it had created, which leaves
+    systemd listening on a path nobody can reach — every Space press
+    after the first idle exit would go unanswered. Accepting here leaves
+    the file alone. Returns the notifier, which must be kept alive.
+    """
+    def accept_all():
+        while True:
+            try:
+                conn, _addr = listener.accept()
+            except BlockingIOError:
+                return
+            except OSError as exc:
+                log.warning("accept failed: %s", exc)
+                return
+            local = QLocalSocket(parent)
+            if local.setSocketDescriptor(conn.detach()):
+                handle(local)
+            else:
+                local.deleteLater()
+
+    notifier = QSocketNotifier(listener.fileno(), QSocketNotifier.Type.Read,
+                               parent)
+    notifier.activated.connect(accept_all)
+    return notifier
+
+
 def main():
     args = sys.argv[1:]
     if "--clear-cache" in args:
@@ -845,16 +954,21 @@ def main():
     # theme still provides.
     app.setStyle("Fusion")
     app.setApplicationName("QuickView")
-    # Stay resident after the window is dismissed so the next preview is
-    # instant — Qt/Python startup only ever happens once.
+    # Closing the panel only hides it: whether the process then exits is
+    # daemon_mode's decision (QuickView.manage_lifetime), not Qt's.
     app.setQuitOnLastWindowClosed(False)
 
+    # Started by systemd's socket, the instance already is the single one:
+    # the checks below would connect to that very socket and conclude that
+    # another daemon is running — and exit, over and over.
+    listener = systemd_listener()
     # Single instance: forward the paths to a running viewer, which toggles
     # or switches the preview — like pressing Space again in Finder.
-    if paths and forward_to_running_instance(paths):
-        return 0
-    if daemon and not paths and daemon_already_running():
-        return 0
+    if listener is None:
+        if paths and forward_to_running_instance(paths):
+            return 0
+        if daemon and not paths and daemon_already_running():
+            return 0
 
     setup_logging()
     log.info("daemon starting (pid %d), logging to %s", os.getpid(), LOG_FILE)
@@ -863,26 +977,10 @@ def main():
     if config.write_default_if_missing():
         log.info("wrote default settings to %s", config.CONFIG_FILE)
 
-    # A name containing '/' makes QLocalServer use it as the literal socket
-    # path instead of placing it in QDir::tempPath(), keeping the location
-    # independent of TMPDIR and identical to what client.py computes.
-    QLocalServer.removeServer(SOCKET_PATH)
-    server = QLocalServer()
-    if not server.listen(SOCKET_PATH):
-        # Without the socket every later invocation spawns another daemon;
-        # better to fail loudly and let systemd retry.
-        log.error(
-            "cannot listen on %s: %s", SOCKET_PATH, server.errorString()
-        )
-        return 1
-
     viewer = QuickView()
     viewer.watch_settings()
 
-    def on_connection():
-        conn = server.nextPendingConnection()
-        if conn is None:
-            return
+    def handle(conn):
         # A large selection arrives in several chunks; accumulate until the
         # client closes its end (that close is the message framing) instead
         # of acting on the first readyRead and truncating the path list.
@@ -927,12 +1025,36 @@ def main():
         guard.timeout.connect(on_guard_timeout)
         guard.start(2000)
 
-    server.newConnection.connect(on_connection)
+    if listener is not None:
+        log.info("started by systemd on %s", SOCKET_PATH)
+        notifier = accept_from(listener, handle, app)  # noqa: F841 — kept alive
+    else:
+        # A name containing '/' makes QLocalServer use it as the literal
+        # socket path instead of placing it in QDir::tempPath(), keeping the
+        # location independent of TMPDIR and identical to what client.py
+        # computes.
+        QLocalServer.removeServer(SOCKET_PATH)
+        server = QLocalServer(app)
+        if not server.listen(SOCKET_PATH):
+            # Without the socket every later invocation spawns another
+            # daemon; better to fail loudly and let systemd retry.
+            log.error(
+                "cannot listen on %s: %s", SOCKET_PATH, server.errorString()
+            )
+            return 1
+
+        def on_connection():
+            conn = server.nextPendingConnection()
+            if conn is not None:
+                handle(conn)
+
+        server.newConnection.connect(on_connection)
     # Boot the first workers now, while the user is still reaching for the
     # keyboard: the ~150 ms Qt import in the jail is what previews used to
     # wait on, and a resident daemon can pay it ahead of time.
     QTimer.singleShot(0, viewer.pool.prime)
     app.aboutToQuit.connect(viewer.pool.shutdown)
+    viewer.manage_lifetime()
     if paths:
         viewer.show_files(paths)
     return app.exec()

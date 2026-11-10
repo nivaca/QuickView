@@ -55,6 +55,9 @@ _SETTINGS = {
     "disk_cache_mb": ("cache", int, 256, "QUICKVIEW_DISK_CACHE_MB", 0, 65536),
     "memory_cache_mb": ("cache", int, 96, "QUICKVIEW_MEMORY_CACHE_MB",
                         8, 8192),
+    "daemon_mode": ("daemon", str, "on-demand", "QUICKVIEW_DAEMON_MODE",
+                    None, None),
+    "idle_minutes": ("daemon", int, 10, "QUICKVIEW_IDLE_MINUTES", 1, 1440),
 }
 
 DEFAULT_FILE = """\
@@ -127,9 +130,24 @@ log_level = info
 # Rendered previews kept on disk, in MiB. 0 disables the disk cache.
 disk_cache_mb = 256
 
-# Decoded pixmaps kept in memory, in MiB. This is on top of the ~300 MB the
-# resident Qt process costs.
+# Decoded pixmaps kept in memory, in MiB. This is on top of the ~130 MB the
+# Qt process itself costs while it runs.
 memory_cache_mb = 96
+
+[daemon]
+# Whether QuickView stays in memory between previews. Keeping Qt loaded
+# makes a preview appear in ~50 ms; starting it fresh costs ~250 ms more,
+# against ~130 MB held while it waits. systemd starts it on the first
+# Space press in every mode, so none of them ever misses one.
+#
+#   on-demand  starts when needed and exits after idle_minutes without a
+#              preview open, as macOS's Quick Look services do.
+#   resident   once started, stays until logout: every preview is fast.
+#   off        no background process: exits as soon as the preview closes.
+daemon_mode = on-demand
+
+# on-demand only: how long to wait, with no preview open, before exiting.
+idle_minutes = 10
 """
 
 
@@ -143,6 +161,9 @@ _CHOICES = {
     # The panel's own colours. Same reasoning as book_theme: a typo here
     # would otherwise leave the window with no palette at all.
     "panel_theme": ("quicklook", "breeze"),
+    # A typo keeps the default, rather than a daemon that never exits or
+    # one that exits after every preview.
+    "daemon_mode": ("on-demand", "resident", "off"),
     # Named levels only, so a typo cannot silence the log entirely — and so
     # setup_logging() can map straight onto the logging module's constants.
     "log_level": ("error", "warning", "info", "debug"),

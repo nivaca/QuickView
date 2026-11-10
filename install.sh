@@ -257,33 +257,55 @@ chmod +x "$MENU_DEST"
 mkdir -p "$HOME/.local/bin"
 ln -sf "$DIR/bin/quickview" "$HOME/.local/bin/quickview"
 
-# Background daemon, so previews open instantly (no Qt startup). Prefer a
-# systemd user service (starts at login, restarts on failure); fall back to
-# XDG autostart on systemd-less setups.
+# The daemon, which keeps Qt loaded so previews open in ~50 ms. With
+# systemd it is socket-activated, as macOS starts its Quick Look services:
+# systemd holds the socket from login, starts the daemon on the first
+# connection, and keeps the socket open whenever the daemon exits — so it
+# can exit when idle ([daemon] daemon_mode in quickview.conf) and still
+# never miss a Space press. Without systemd, XDG autostart starts it at
+# login, and the launcher starts it again whenever none is running.
 if command -v systemctl >/dev/null 2>&1; then
     mkdir -p "$HOME/.config/systemd/user"
+    # An older install enabled the service itself, at login. Disable that
+    # while its unit file still says where the link is, and stop whatever
+    # daemon is running — the old unit's, or one the launcher started — so
+    # the socket unit can take over the path.
+    systemctl --user disable --now quickview.service 2>/dev/null || true
+    pkill -f "^$DIR/.venv/bin/python $DIR/quickview.py" 2>/dev/null || true
+    rm -f "${XDG_RUNTIME_DIR:-/tmp}/quickview-$(id -u)"
+    # %t/quickview-%U is $XDG_RUNTIME_DIR/quickview-<uid>: ipc.socket_path(),
+    # where both clients already connect.
+    cat > "$HOME/.config/systemd/user/quickview.socket" <<EOF
+[Unit]
+Description=QuickView socket (starts the previewer on first use)
+
+[Socket]
+ListenStream=%t/quickview-%U
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target
+EOF
+    # No [Install]: the socket starts it. PartOf so it goes with the
+    # session — the next login's panel needs the next session's display.
     cat > "$HOME/.config/systemd/user/quickview.service" <<EOF
 [Unit]
-Description=QuickView resident previewer (warm daemon for instant previews)
-After=graphical-session.target
+Description=QuickView previewer (started by quickview.socket)
+Requires=quickview.socket
+After=quickview.socket graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
 ExecStart="$DIR/bin/quickview" --daemon
 Restart=on-failure
 RestartSec=5
-
-[Install]
-WantedBy=graphical-session.target
 EOF
     rm -f "$HOME/.config/autostart/quickview-daemon.desktop"
     systemctl --user daemon-reload
-    systemctl --user enable quickview.service
-    # restart, not `enable --now`: --now leaves an already-running daemon
-    # untouched, so an upgrade that changes the socket path or wire
-    # protocol would strand the old daemon on the old socket while new
-    # invocations spawn a second one. restart also starts a stopped unit.
-    systemctl --user restart quickview.service
+    systemctl --user enable quickview.socket
+    # restart, not `enable --now`: --now leaves an already-listening socket
+    # untouched, so a changed unit would not take effect until next login.
+    systemctl --user restart quickview.socket
 else
     mkdir -p "$HOME/.config/autostart"
     cat > "$HOME/.config/autostart/quickview-daemon.desktop" <<EOF
