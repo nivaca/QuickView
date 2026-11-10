@@ -75,6 +75,26 @@ class OfficeViewMixin:
         """Whether office documents go to LibreOffice: installed, not refused."""
         return SETTINGS["office_engine"] != "builtin" and bool(office_suite())
 
+    # Word-processing documents, the ones the built-in layout lays out as
+    # pages. Decks have no layout of their own (only an embedded
+    # thumbnail) and the legacy formats none at all, so only these can be
+    # shown first and upgraded after.
+    QUICK_LAYOUT_MIMES = (
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        "application/vnd.oasis.opendocument.text",
+    )
+
+    @staticmethod
+    def office_page_key(path: str, st, page_w: int, scale: float, engine: str):
+        # The engine is part of the key: pages laid out by the built-in
+        # converter must not outlive a LibreOffice install, or a change of
+        # office_engine, or vice versa.
+        return lambda i: cache_key(path, st, page_w, 0, f"off{engine}{i}@{scale:g}")
+
+    def office_engine_tag(self) -> str:
+        """The engine show_office() lays a document out with, as keyed."""
+        return "lo" if self.office_suite_in_use() else "qt2"
+
     def show_office(self, path: str, mime: str):
         # Laid out as pages, cached page by page, and shown by the same code
         # that shows a PDF — a document with pages gets the page view. A
@@ -83,22 +103,32 @@ class OfficeViewMixin:
         if self._office_text and self._office_doc and self._office_doc[0] == path:
             self._render_office(path, self._office_doc[1])
             return
-        avail = self.screen_avail()
-        page_w = max(int(avail.width() * 0.55) - 44, 400)
-        self._page_scale = scale = self.page_scale()
+        page_w, scale = self.page_geometry()
+        self._page_scale = scale
         try:
             st = os.stat(path)
         except OSError as exc:
             self.show_message(str(exc))
             return
 
-        # The engine is part of the key: pages laid out by the built-in
-        # converter must not outlive a LibreOffice install, or a change of
-        # office_engine, or vice versa.
-        engine = "lo" if self.office_suite_in_use() else "qt2"
+        engine = self.office_engine_tag()
+        if (engine == "lo" and mime in self.QUICK_LAYOUT_MIMES and not
+                self.pages_cached(self.office_page_key(path, st, page_w, scale, "lo"))):
+            # LibreOffice takes ~0.6 s to start and lay a document out; the
+            # built-in layout takes ~35 ms. Show that now, and swap in
+            # LibreOffice's pages when they are ready.
+            self._show_office_pages(path, st, page_w, scale, "qt2", "builtin")
+            self._upgrade_office(path, mime, st, page_w, scale)
+            return
+        self._show_office_pages(path, st, page_w, scale, engine,
+                                SETTINGS["office_engine"])
 
-        def page_key(i: int) -> str:
-            return cache_key(path, st, page_w, 0, f"off{engine}{i}@{scale:g}")
+    def _show_office_pages(self, path: str, st, page_w: int, scale: float,
+                           engine: str, engine_setting: str):
+        """The page view, from the cache or a fresh render, laid out by
+        engine ("lo" or "qt2"), which the worker is asked for by its
+        setting's name."""
+        page_key = self.office_page_key(path, st, page_w, scale, engine)
 
         def on_doc(payload: bytes):
             try:
@@ -118,7 +148,7 @@ class OfficeViewMixin:
             except ValueError:
                 pass
         extra = {"name": os.path.basename(path), "limit": text_limit(),
-                 "engine": SETTINGS["office_engine"]}
+                 "engine": engine_setting}
         if total > 0:
             log.debug("disk cache hit (office): %s", path)
             self._pdf_show_cached(
@@ -130,6 +160,32 @@ class OfficeViewMixin:
         self._pdf_render(
             path, page_key, page_w, op="office", extra=extra, on_doc=on_doc
         )
+
+    def _upgrade_office(self, path: str, mime: str, st, page_w: int,
+                        scale: float):
+        """Lay the document out with LibreOffice in the background, then
+        show those pages in place of the quick ones, where the reader is.
+
+        The job belongs to this preview: moving on cancels it (it is in
+        _preview_jobs), so on_done only ever runs with this file on screen.
+        If LibreOffice fails, the quick layout simply stays.
+        """
+        def on_done(ok: bool, pages: int):
+            if not (ok and pages) or path != self.current_path:
+                return
+            log.debug("office upgraded to LibreOffice: %s", path)
+            ratio = self._page_scroll_ratio()
+            self.clear_content()
+            self.show_office(path, mime)  # now a cache hit on the "lo" pages
+            self._restore_page_scroll(ratio)
+
+        job = {"op": "office", "name": os.path.basename(path),
+               "limit": text_limit(), "engine": "libreoffice",
+               "page_w": page_w, "max_pages": SETTINGS["pdf_max_pages"],
+               "start": 0, "scale": scale}
+        self._preview_jobs.append(self._warm_pages(
+            path, job, self.office_page_key(path, st, page_w, scale, "lo"),
+            on_done))
 
     def _render_office(self, path: str, doc: dict):
         """Show the cached payload in whichever mode is selected."""

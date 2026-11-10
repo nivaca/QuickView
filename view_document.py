@@ -39,6 +39,7 @@ from common import (
     cache_read_head,
     cache_remove,
     cache_write,
+    is_cache_blob,
     log,
     png_size,
     SETTINGS,
@@ -65,18 +66,28 @@ class DocumentViewMixin:
     # the moment it arrives. Pages land in the disk cache individually, so
     # a repeat view never touches the PDF parser at all.
 
-    def show_pdf(self, path: str):
+    def page_geometry(self) -> tuple:
+        """(page width, device pixel ratio) a page view renders at here.
+
+        Shared by the views and the prefetch, which must arrive at the
+        very same cache keys for a warmed page to be found.
+        """
         avail = self.screen_avail()
-        page_w = max(int(avail.width() * 0.55) - 44, 400)
-        self._page_scale = scale = self.page_scale()
+        return max(int(avail.width() * 0.55) - 44, 400), self.page_scale()
+
+    @staticmethod
+    def pdf_page_key(path: str, st, page_w: int, scale: float):
+        return lambda i: cache_key(path, st, page_w, 0, f"pdf{i}@{scale:g}")
+
+    def show_pdf(self, path: str):
+        page_w, scale = self.page_geometry()
+        self._page_scale = scale
         try:
             st = os.stat(path)
         except OSError as exc:
             self.show_message(str(exc))
             return
-
-        def page_key(i: int) -> str:
-            return cache_key(path, st, page_w, 0, f"pdf{i}@{scale:g}")
+        page_key = self.pdf_page_key(path, st, page_w, scale)
 
         # The bookmarks, for the sidebar. Cached like a page is, because
         # the alternative is a second worker on every open of every PDF —
@@ -107,6 +118,69 @@ class DocumentViewMixin:
             if png0 is not None:
                 cache_remove(page_key(0))
             self._pdf_render(path, page_key, page_w)
+
+    @staticmethod
+    def pages_cached(page_key) -> bool:
+        """Whether a page view can open from the cache: page 1 is there and
+        knows the document's page count. Later pages may be missing; the
+        view resumes the render at the first one that is."""
+        png0 = cache_read(page_key(0))
+        if png0 is None:
+            return False
+        try:
+            return int(QImage.fromData(png0).text("QuickView:PageCount")) > 0
+        except ValueError:
+            return False
+
+    def _warm_pages(self, path: str, job: dict, page_key, on_done=None):
+        """Render pages into the disk cache, and nothing else; the job.
+
+        For pages nobody is looking at yet — a neighbour's, or the
+        LibreOffice layout an office document will switch to. Nothing here
+        touches the view, so a late answer cannot land on the wrong
+        preview: the pages are shown, if ever, by an open that finds them
+        cached. They are checked for being an encoded image and not
+        decoded — fifty decodes on this thread would stutter whatever the
+        user is looking at, and the cache-hit path decodes them anyway,
+        re-rendering any that fail. on_done(ok, pages written) follows.
+        """
+        state = {"frames": 0, "written": 0, "job": None}
+
+        def on_frame(png: bytes):
+            if state["job"].header.get("kind", "pages") != "pages":
+                return  # a deck's thumbnail-and-text answer has no pages
+            page = job.get("start", 0) + state["frames"]
+            state["frames"] += 1  # numbered by arrival, written or not
+            if is_cache_blob(png):
+                cache_write(page_key(page), png)
+                state["written"] += 1
+
+        def finished(ok: bool, error: str):
+            log.debug("warmed %d %s page(s): %s%s", state["written"],
+                      job.get("op"), path, "" if ok else f" ({error[:200]})")
+            if on_done is not None:
+                on_done(ok, state["written"])
+
+        state["job"] = SandboxJob(self.pool, path, job, on_frame, finished, self)
+        return state["job"]
+
+    def _page_scroll_ratio(self) -> float:
+        bar = self._page_scroll.verticalScrollBar() if self._page_scroll else None
+        if bar is None or bar.maximum() <= 0:
+            return 0.0
+        return bar.value() / bar.maximum()
+
+    def _restore_page_scroll(self, ratio: float):
+        """Put a rebuilt page column back where the reader was, as a
+        fraction of its length: the page breaks themselves may differ."""
+        if ratio <= 0:
+            return
+
+        def apply():
+            if self._page_scroll is not None:
+                bar = self._page_scroll.verticalScrollBar()
+                bar.setValue(round(ratio * bar.maximum()))
+        QTimer.singleShot(0, apply)  # once the new column has its height
 
     def _pdf_begin_view(self, path: str, total: int, sizes: list,
                         op: str = "pdf", page_w: int = 0):

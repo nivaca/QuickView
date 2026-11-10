@@ -311,8 +311,13 @@ now; a cached preview is ~2 ms.
   to PDF inside the same jail — a copy of the file in the jail's own tmpfs,
   a throwaway profile, no network — and rendered by the PDF path. That is the only way to get the document's real fonts,
   image sizes and positions, text wrap, headers and EMF logos. It costs
-  ~1.3 s on first open (cached after that) against ~15 ms for the fallback,
-  and gives up after 12 s. A distro LibreOffice under `/usr` is used
+  ~0.6 s on first open (cached after that) against ~35 ms for the built-in
+  layout, and gives up after 12 s — so a docx or odt does not wait for it:
+  the built-in layout is shown at once, LibreOffice works alongside in a
+  second worker, and its pages replace the quick ones as soon as they are
+  ready, at the same point in the document. Moving on cancels it. Decks and
+  the legacy formats have no quick layout and wait as before. A distro
+  LibreOffice under `/usr` is used
   first; otherwise the **Flathub one** (`org.libreoffice.LibreOffice`,
   per-user or system-wide). Its app and runtime are bound into the jail
   read-only, with your own fonts from `~/.local/share/fonts` (symlinks

@@ -130,6 +130,11 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self.pool = WorkerPool()
         self._render_job = None
         self._prefetch_job = None
+        # Background work that belongs to the preview on screen, such as the
+        # LibreOffice layout that replaces an office document's quick one:
+        # cancelled the moment the user moves on, so paging through a folder
+        # never leaves a trail of conversions running for files gone by.
+        self._preview_jobs = []
         self._prefetch_queue = []  # (path, key, job) awaiting a warm render
         self._pdf_gen = None  # token invalidating in-flight page appends
         self._pdf_labels = []  # one placeholder per page of the open PDF
@@ -458,6 +463,9 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
 
     def clear_content(self):
         self._cancel_render()
+        for job in self._preview_jobs:
+            job.cancel()
+        self._preview_jobs = []
         # A table of contents belongs to one document. Cleared here rather
         # than in _clear_widgets(), which also runs mid-render when the
         # page column replaces the loading card — and would throw away a
