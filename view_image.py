@@ -32,15 +32,13 @@ from PySide6.QtWidgets import (
 from common import (
     ANIM_MAX_FRAMES,
     ANIM_MAX_PIXMAP_BYTES,
-    ANIM_MIMES,
-    CACHE_DIR,
+    cache_has,
     cache_key,
     cache_read,
     cache_remove,
     cache_write,
     image_from_raw,
     is_cache_blob,
-    LAYERED_EXTENSIONS,
     log,
     mem_cache_bytes,
 )
@@ -201,91 +199,46 @@ class ImageViewMixin:
     # ------------------------------------------------------------- prefetch
     # Warm the disk cache for the files ← → would show next, so paging
     # through a folder of photos never waits on a cold decode. Same sandboxed
-    # helper, same cache key — show_image() then hits the disk tier.
+    # helper, same cache key — show_image() then hits the disk tier. The
+    # queue itself, shared with documents, is QuickView._prefetch_neighbors.
 
-    def _neighbor_paths(self) -> list:
-        if len(self.selection) > 1:
-            n = len(self.selection)
-            return [
-                self.selection[(self.sel_index + d) % n] for d in (1, -1)
-            ]
-        if not self.current_path:
-            return []
-        folder = os.path.dirname(self.current_path) or "."
-        try:
-            names = sorted(
-                (n for n in os.listdir(folder) if not n.startswith(".")),
-                key=str.lower,
-            )
-        except OSError:
-            return []
-        cur = os.path.basename(self.current_path)
-        if cur not in names:
-            return []
-        idx = names.index(cur)
-        return [
-            os.path.join(folder, names[(idx + d) % len(names)])
-            for d in (1, -1)
-        ]
-
-    def _prefetch_neighbors(self):
+    def _image_prefetch(self, path: str, mime: str):
+        """A prefetch task warming show_image()'s cache entry, or None."""
         max_w, max_h = self.image_fit_box()
-        queue = []
-        for p in self._neighbor_paths():
-            if p == self.current_path:
-                continue
-            mime = self.mime_db.mimeTypeForFile(p).name()
-            # Only what show_image() would render: animations take the
-            # show_anim() path (whose frames this key is never read for)
-            # and everything else has no cache tier to warm.
-            if mime in ANIM_MIMES or not (
-                mime.startswith("image/")
-                or os.path.splitext(p)[1].lower() in LAYERED_EXTENSIONS
-            ):
-                continue
-            try:
-                st = os.stat(p)
-            except OSError:
-                continue
-            key = cache_key(p, st, max_w, max_h)
-            if key in self._mem_cache or os.path.exists(
-                os.path.join(CACHE_DIR, key)
-            ):
-                continue
-            queue.append((p, key, max_w, max_h))
-        self._prefetch_queue = queue
-        self._start_next_prefetch()
+        try:
+            st = os.stat(path)
+        except OSError:
+            return None
+        key = cache_key(path, st, max_w, max_h)
+        if key in self._mem_cache or cache_has(key):
+            return None
 
-    def _start_next_prefetch(self):
-        # One worker at a time, so speculative work never competes with a
-        # render the user is actually waiting on for a whole core.
-        if self._prefetch_job is not None or not self._prefetch_queue:
-            return
-        path, key, max_w, max_h = self._prefetch_queue.pop(0)
-        got = {"blob": None}
+        def start(done):
+            got = {"blob": None}
 
-        def on_frame(data: bytes):
-            # Only the encoded frame belongs in the cache. "raw": False
-            # below means that is the one frame we get, but check rather
-            # than trust the frame order — this consumer never displays.
-            if is_cache_blob(data):
-                got["blob"] = data
+            def on_frame(data: bytes):
+                # Only the encoded frame belongs in the cache. "raw": False
+                # below means that is the one frame we get, but check rather
+                # than trust the frame order — this consumer never displays.
+                if is_cache_blob(data):
+                    got["blob"] = data
 
-        def on_done(ok: bool, _error: str):
-            self._prefetch_job = None
-            blob = got["blob"]
-            if ok and blob:
-                log.debug("prefetched: %s", path)
-                cache_write(key, blob)
-            self._start_next_prefetch()
+            def on_done(ok: bool, _error: str):
+                blob = got["blob"]
+                if ok and blob:
+                    log.debug("prefetched: %s", path)
+                    cache_write(key, blob)
+                done()
 
-        self._prefetch_job = SandboxJob(
-            self.pool, path,
-            # No raw frame: prefetch fills the disk cache and shows nothing,
-            # so the pixels would be several megabytes copied to be dropped.
-            {"op": "image", "max_w": max_w, "max_h": max_h, "raw": False},
-            on_frame, on_done, self,
-        )
+            return SandboxJob(
+                self.pool, path,
+                # No raw frame: prefetch fills the disk cache and shows
+                # nothing, so the pixels would be several megabytes copied
+                # to be dropped.
+                {"op": "image", "max_w": max_w, "max_h": max_h, "raw": False},
+                on_frame, on_done, self,
+            )
+        return start
 
     # ------------------------------------------------------- animation
     # QMovie decodes an untrusted GIF frame by frame for as long as the

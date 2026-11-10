@@ -518,6 +518,73 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             if w is not None:
                 w.deleteLater()
 
+    # ------------------------------------------------------------- prefetch
+    # Warm the cache for the files ← → would show next. Each view that has
+    # a cache tier offers a task for a neighbour of its kind (_image_prefetch,
+    # _pdf_prefetch, _office_prefetch); a task is start(done) -> job, and
+    # the tasks run here one at a time.
+
+    def _neighbor_paths(self) -> list:
+        if len(self.selection) > 1:
+            n = len(self.selection)
+            return [
+                self.selection[(self.sel_index + d) % n] for d in (1, -1)
+            ]
+        if not self.current_path:
+            return []
+        folder = os.path.dirname(self.current_path) or "."
+        try:
+            names = sorted(
+                (n for n in os.listdir(folder) if not n.startswith(".")),
+                key=str.lower,
+            )
+        except OSError:
+            return []
+        cur = os.path.basename(self.current_path)
+        if cur not in names:
+            return []
+        idx = names.index(cur)
+        return [
+            os.path.join(folder, names[(idx + d) % len(names)])
+            for d in (1, -1)
+        ]
+
+    def _prefetch_neighbors(self):
+        offers = {
+            "image": self._image_prefetch,
+            "pdf": self._pdf_prefetch,
+            "office": self._office_prefetch,
+        }
+        queue = []
+        for p in self._neighbor_paths():
+            if p == self.current_path or not os.path.isfile(p):
+                continue
+            view, mime = self.route(p)
+            # Only what a view would read back from the cache: animations,
+            # say, take a path whose frames no cache key is ever read for.
+            offer = offers.get(view)
+            task = offer(p, mime) if offer is not None else None
+            if task is not None:
+                queue.append(task)
+        self._prefetch_queue = queue
+        self._start_next_prefetch()
+
+    def _start_next_prefetch(self):
+        # One worker at a time, so speculative work never competes with a
+        # render the user is actually waiting on for a whole core — nor with
+        # the preview's own background work, such as an office document's
+        # LibreOffice layout, which calls this again when it is done.
+        if (self._prefetch_job is not None or not self._prefetch_queue
+                or self._preview_jobs):
+            return
+        task = self._prefetch_queue.pop(0)
+
+        def done():
+            self._prefetch_job = None
+            self._start_next_prefetch()
+
+        self._prefetch_job = task(done)
+
     def open_externally(self):
         if self.current_path:
             QDesktopServices.openUrl(QUrl.fromLocalFile(self.current_path))
@@ -575,48 +642,22 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         elif os.path.isdir(path):
             self.show_folder(path)
         else:
-            mime = self.mime_db.mimeTypeForFile(path).name()
-            ext = os.path.splitext(path)[1].lower()
-            # This routing is the sandbox enforcement point. Every branch
-            # below hands the file to a jailed worker (show_image, show_pdf,
-            # show_anim, show_media) or reads plain bytes (text/fallback).
-            # The one exception is HTML, which QtWebEngine parses in its own
-            # Chromium renderer sandbox rather than in our jail;
-            # QUICKVIEW_STRICT_SANDBOX=1 drops it to the source view for
-            # anyone who would rather not rely on that.
-            allow_webengine = os.environ.get("QUICKVIEW_STRICT_SANDBOX") != "1"
-            if mime in ANIM_MIMES:
-                self.show_anim(path)
-            elif mime.startswith("image/") or ext in LAYERED_EXTENSIONS:
-                self.show_image(path)
-            elif mime == "application/pdf" or (
-                ext in AI_EXTENSIONS and self.is_pdf(path)
-            ):
-                self.show_pdf(path)
-            elif (
-                mime == "text/html" or ext in (".html", ".htm")
-            ) and allow_webengine:
-                self.show_html(path)
-            elif mime.startswith(("video/", "audio/")):
-                self.show_media(path, video=mime.startswith("video/"))
-            elif mime in EPUB_MIMES or ext in EPUB_EXTENSIONS:
-                self.show_epub(path)
-            elif mime in ARCHIVE_MIMES or ext in ARCHIVE_EXTENSIONS:
-                self.show_archive(path, mime)
-            elif mime in SPREADSHEET_MIMES or ext in SPREADSHEET_EXTENSIONS or (
-                mime in LEGACY_SPREADSHEET_MIMES and self.office_suite_in_use()
-            ):
-                self.show_sheets(path, mime)
-            elif mime in OFFICE_MIMES or (
-                mime in SUITE_ONLY_MIMES and self.office_suite_in_use()
-            ):
-                self.show_office(path, mime)
-            elif mime in MARKDOWN_MIMES or ext in MARKDOWN_EXTENSIONS:
-                self.show_markdown(path)
-            elif mime.startswith("text/") or ext in TEXT_EXTENSIONS:
-                self.show_text(path)
-            else:
-                self.show_fallback(path, mime)
+            view, mime = self.route(path)
+            {
+                "anim": lambda: self.show_anim(path),
+                "image": lambda: self.show_image(path),
+                "pdf": lambda: self.show_pdf(path),
+                "html": lambda: self.show_html(path),
+                "video": lambda: self.show_media(path, video=True),
+                "audio": lambda: self.show_media(path, video=False),
+                "epub": lambda: self.show_epub(path),
+                "archive": lambda: self.show_archive(path, mime),
+                "sheets": lambda: self.show_sheets(path, mime),
+                "office": lambda: self.show_office(path, mime),
+                "markdown": lambda: self.show_markdown(path),
+                "text": lambda: self.show_text(path),
+                "fallback": lambda: self.show_fallback(path, mime),
+            }[view]()
 
         # Transparent overlay the size of the work area, with the panel
         # centred inside it: the one way to put a preview at a chosen spot
@@ -628,6 +669,54 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self.show()
         self.raise_()
         self.activateWindow()
+
+    def route(self, path: str) -> tuple:
+        """(view, MIME type) for a file: which show_*() previews it.
+
+        Asked by show_file() and by the prefetch, which must warm exactly
+        what show_file() will then look for.
+
+        This routing is the sandbox enforcement point. Every view below
+        hands the file to a jailed worker (show_image, show_pdf, show_anim,
+        show_media) or reads plain bytes (text/fallback). The one exception
+        is HTML, which QtWebEngine parses in its own Chromium renderer
+        sandbox rather than in our jail; QUICKVIEW_STRICT_SANDBOX=1 drops it
+        to the source view for anyone who would rather not rely on that.
+        """
+        mime = self.mime_db.mimeTypeForFile(path).name()
+        ext = os.path.splitext(path)[1].lower()
+        allow_webengine = os.environ.get("QUICKVIEW_STRICT_SANDBOX") != "1"
+        if mime in ANIM_MIMES:
+            return "anim", mime
+        if mime.startswith("image/") or ext in LAYERED_EXTENSIONS:
+            return "image", mime
+        if mime == "application/pdf" or (
+            ext in AI_EXTENSIONS and self.is_pdf(path)
+        ):
+            return "pdf", mime
+        if (mime == "text/html" or ext in (".html", ".htm")) and allow_webengine:
+            return "html", mime
+        if mime.startswith("video/"):
+            return "video", mime
+        if mime.startswith("audio/"):
+            return "audio", mime
+        if mime in EPUB_MIMES or ext in EPUB_EXTENSIONS:
+            return "epub", mime
+        if mime in ARCHIVE_MIMES or ext in ARCHIVE_EXTENSIONS:
+            return "archive", mime
+        if mime in SPREADSHEET_MIMES or ext in SPREADSHEET_EXTENSIONS or (
+            mime in LEGACY_SPREADSHEET_MIMES and self.office_suite_in_use()
+        ):
+            return "sheets", mime
+        if mime in OFFICE_MIMES or (
+            mime in SUITE_ONLY_MIMES and self.office_suite_in_use()
+        ):
+            return "office", mime
+        if mime in MARKDOWN_MIMES or ext in MARKDOWN_EXTENSIONS:
+            return "markdown", mime
+        if mime.startswith("text/") or ext in TEXT_EXTENSIONS:
+            return "text", mime
+        return "fallback", mime
 
     def is_pdf(self, path: str) -> bool:
         """Does this file start with %PDF?

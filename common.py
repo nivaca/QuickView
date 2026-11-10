@@ -155,6 +155,10 @@ TEXT_EXTENSIONS = {
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKER_HELPER = os.path.join(APP_DIR, "worker.py")
+# Pages warmed per neighbouring document by the prefetch: enough for it to
+# open instantly. The page view renders the rest when it reaches the first
+# missing page, as it does for any partly cached document.
+PREFETCH_PAGES = 2
 # SETTINGS["pdf_max_pages"] caps rendered pages so a 2000-page (or hostile)
 # PDF can't grind the helper for minutes; the title says when the preview is
 # truncated.
@@ -394,6 +398,10 @@ def cache_read(key: str) -> bytes | None:
     except OSError:
         pass  # the data is already read — a failed freshen is no reason to drop it
     return data
+
+
+def cache_has(key: str) -> bool:
+    return os.path.exists(os.path.join(CACHE_DIR, key))
 
 
 def cache_remove(key: str):

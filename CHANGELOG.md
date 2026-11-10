@@ -5,6 +5,76 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 2026-11-10 — speed and structure
+
+### Added
+
+- **Office documents show at once, then sharpen.** With LibreOffice in
+  use, a docx or odt waited ~0.6 s on "Loading…" for LibreOffice to start
+  and lay it out. The built-in layout now appears in ~35–50 ms, while
+  LibreOffice works alongside in a second worker; its pages replace the
+  quick ones as soon as they are cached, and the reader stays at the same
+  fraction of the document even though the two paginate differently.
+  Moving on cancels the conversion, so paging through a folder never
+  leaves LibreOffice running for files already gone by. Decks and the
+  legacy formats, which have no quick layout, wait for LibreOffice as
+  before. If LibreOffice fails, the quick layout stays.
+- **Neighbouring documents are prefetched, not just images.** The files
+  ← → would show next were warmed only when they were images. PDFs and
+  office documents are now warmed too — their first two pages
+  (`PREFETCH_PAGES`), which is enough for them to open in ~5 ms against
+  ~85 ms cold; the rest renders when the reader gets there. An office
+  neighbour is warmed in the layout it will open with, so with LibreOffice
+  it opens straight into LibreOffice's pages. Prefetch still runs one job
+  at a time, after the current preview has finished rendering, and waits
+  for an office document's LibreOffice layout before starting.
+- **Settings apply without a restart.** The daemon watches
+  `quickview.conf` (and its folder, for editors that save by renaming) and
+  re-reads it a quarter second after the last change. Every setting
+  applies from the next preview; the panel theme (including where the
+  close button sits) and the log level change at once, and a smaller disk
+  cache is pruned immediately. An edit saved while the daemon is still
+  starting is picked up too. A malformed file falls back to defaults for
+  whatever it gets wrong, as at startup.
+
+### Changed
+
+- **`renderers.py` is a package.** The decoders were one 3,948-line file;
+  they are now `renderers/` with a module per family — `images`, `pdf`,
+  `highlight`, `archives`, `office`, `suite` (running LibreOffice), `sheets`,
+  `epub`, `markdown` — plus `base` for shared limits and encoders. Moved by
+  a script and checked line by line: no code changed, and
+  `import renderers` still reaches every name, so the workers and helper
+  scripts are untouched. No import cycles.
+- **The worker dispatches through a table.** `worker.py`'s `main()` was
+  221 lines with twelve job types in one if/elif chain. Each type is now a
+  function in an `OPS` table, writing through a small `Reply` object that
+  tracks whether the header has gone out — which is what decides how a
+  failure is reported. `serve()` answers one request and can be driven
+  over a socket pair, so the protocol is now tested without a jail,
+  including the rule that a stream failing after its header ends without
+  the end-of-stream marker, and that every job type the daemon sends has a
+  handler.
+- **Settings are read when used.** Seven settings were copied into
+  constants when the daemon started (`PDF_MAX_PAGES`, `OFFICE_ENGINE` and
+  the like), which is what made a restart necessary and made tests patch
+  module variables. They are read from the one `SETTINGS` dict at the
+  point of use, and a reload updates that dict in place.
+- **One check decides whether a worker's answer is still wanted.** Eleven
+  callbacks across four views each re-implemented "is this the job
+  rendering the panel now, for the file on screen?"; a slip in any of them
+  would paint one file's preview under another's name. They now share
+  `_is_current()`, and a test checks that late answers are dropped.
+- **File routing is one method.** Which view previews a file was decided
+  inline in `show_file()`; it is now `route()`, asked by `show_file()` and
+  by the prefetch, so the two cannot disagree about a file.
+- **Long UI methods split.** The media controls row is a `PlaybackBar`
+  widget of its own (`show_media()` went from 162 lines to 34) and
+  `show_image()` from 97 to 10, as a cache lookup and a render. The
+  controls lay out to the pixel as before.
+- **The disk cache's location is private to `common.py`.** The image
+  prefetch built cache paths itself; it asks `cache_has()` now.
+
 ## 2026-11-10 — fork by Nicolas Vaughan
 
 The first changes made in [nivaca/QuickView][fork], a fork of

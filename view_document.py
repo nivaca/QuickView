@@ -41,6 +41,7 @@ from common import (
     cache_write,
     is_cache_blob,
     log,
+    PREFETCH_PAGES,
     png_size,
     SETTINGS,
     TOC_WIDTH,
@@ -163,6 +164,21 @@ class DocumentViewMixin:
 
         state["job"] = SandboxJob(self.pool, path, job, on_frame, finished, self)
         return state["job"]
+
+    def _pdf_prefetch(self, path: str, mime: str):
+        """A prefetch task warming show_pdf()'s first pages, or None."""
+        page_w, scale = self.page_geometry()
+        try:
+            st = os.stat(path)
+        except OSError:
+            return None
+        page_key = self.pdf_page_key(path, st, page_w, scale)
+        if self.pages_cached(page_key):
+            return None
+        job = {"op": "pdf", "page_w": page_w, "max_pages": PREFETCH_PAGES,
+               "start": 0, "scale": scale}
+        return lambda done: self._warm_pages(
+            path, job, page_key, lambda _ok, _pages: done())
 
     def _page_scroll_ratio(self) -> float:
         bar = self._page_scroll.verticalScrollBar() if self._page_scroll else None
@@ -841,6 +857,9 @@ class DocumentViewMixin:
                 return  # the view was cleared under us
             i = state["i"]
             if i >= count:
+                # Every page came from the cache: the worker pool is idle,
+                # so this is when to warm the neighbours.
+                self._prefetch_neighbors()
                 return
             img = (
                 img0 if i == 0
@@ -942,6 +961,8 @@ class DocumentViewMixin:
             elif not ok:
                 # Keep the pages that made it; just note the truncation.
                 log.warning("pdf render truncated: %s (%s)", path, error[:500])
+            if state["shown"]:
+                self._prefetch_neighbors()  # this render no longer needs a core
 
         job = {"op": op, "page_w": page_w, "max_pages": SETTINGS["pdf_max_pages"],
                "start": start, "scale": self._page_scale}

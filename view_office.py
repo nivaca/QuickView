@@ -43,6 +43,7 @@ from common import (
     cache_write,
     LEGACY_SPREADSHEET_MIMES,
     log,
+    PREFETCH_PAGES,
     OFFICE_MIMES,
     SETTINGS,
     SUITE_ONLY_MIMES,
@@ -161,6 +162,33 @@ class OfficeViewMixin:
             path, page_key, page_w, op="office", extra=extra, on_doc=on_doc
         )
 
+    def _office_prefetch(self, path: str, mime: str):
+        """A prefetch task warming the pages show_office() opens with.
+
+        With LibreOffice that is LibreOffice's layout itself, so a
+        neighbour opens straight into it, without the quick one first.
+        Without it, a deck has no pages to warm — its preview is the
+        thumbnail the file carries, which costs nothing to show.
+        """
+        engine = self.office_engine_tag()
+        if engine == "qt2" and mime not in self.QUICK_LAYOUT_MIMES:
+            return None
+        page_w, scale = self.page_geometry()
+        try:
+            st = os.stat(path)
+        except OSError:
+            return None
+        page_key = self.office_page_key(path, st, page_w, scale, engine)
+        if self.pages_cached(page_key):
+            return None
+        job = {"op": "office", "name": os.path.basename(path),
+               "limit": text_limit(),
+               "engine": "libreoffice" if engine == "lo" else "builtin",
+               "page_w": page_w, "max_pages": PREFETCH_PAGES,
+               "start": 0, "scale": scale}
+        return lambda done: self._warm_pages(
+            path, job, page_key, lambda _ok, _pages: done())
+
     def _upgrade_office(self, path: str, mime: str, st, page_w: int,
                         scale: float):
         """Lay the document out with LibreOffice in the background, then
@@ -171,7 +199,12 @@ class OfficeViewMixin:
         If LibreOffice fails, the quick layout simply stays.
         """
         def on_done(ok: bool, pages: int):
+            if state["job"] in self._preview_jobs:
+                self._preview_jobs.remove(state["job"])
             if not (ok and pages) or path != self.current_path:
+                # The quick layout stays; the neighbours' turn, which this
+                # job was holding back (see _start_next_prefetch).
+                self._start_next_prefetch()
                 return
             log.debug("office upgraded to LibreOffice: %s", path)
             ratio = self._page_scroll_ratio()
@@ -179,13 +212,15 @@ class OfficeViewMixin:
             self.show_office(path, mime)  # now a cache hit on the "lo" pages
             self._restore_page_scroll(ratio)
 
+        state = {"job": None}
         job = {"op": "office", "name": os.path.basename(path),
                "limit": text_limit(), "engine": "libreoffice",
                "page_w": page_w, "max_pages": SETTINGS["pdf_max_pages"],
                "start": 0, "scale": scale}
-        self._preview_jobs.append(self._warm_pages(
+        state["job"] = self._warm_pages(
             path, job, self.office_page_key(path, st, page_w, scale, "lo"),
-            on_done))
+            on_done)
+        self._preview_jobs.append(state["job"])
 
     def _render_office(self, path: str, doc: dict):
         """Show the cached payload in whichever mode is selected."""

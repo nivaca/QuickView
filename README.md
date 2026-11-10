@@ -72,8 +72,12 @@ just like Quick Look on a multi-file selection.
 - **HTML renders** with JavaScript off and the network blocked, and the
   titlebar flips to source view.
 - **Two-tier preview cache**, in memory and on disk, so reopening a file is
-  effectively instant; neighbouring images are warmed in the background
-  while you look at the current one.
+  effectively instant. The files ← → would show next — images, PDFs and
+  office documents — are warmed in the background while you look at the
+  current one, so paging through a folder opens each in ~5 ms.
+- **Office documents never wait for LibreOffice.** A docx or odt shows the
+  built-in layout at once, and LibreOffice's pages replace it when they are
+  ready, at the same place in the document.
 - **Anything it cannot preview** still gets a card with its icon, type, size
   and modified date, so Space is never a dead key.
 - **Configurable** through `~/.config/quickview/quickview.conf`, written with
