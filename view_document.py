@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # QuickView — a Quick Look style file previewer for KDE Plasma.
 # Copyright (C) 2026 Mustapha Alioglou
+# Copyright (C) 2026 Nicolas Vaughan <nivaca@fastmail.com>
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
