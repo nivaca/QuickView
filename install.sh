@@ -40,7 +40,16 @@ MSG
 fi
 
 PY="$DIR/.venv/bin/python"
-if [ ! -x "$PY" ]; then
+# A venv whose pyvenv.cfg has gone missing — lost when the folder was
+# copied or synced — still has a python that runs, but it runs as the
+# bare system interpreter: the packages in .venv vanish from its path,
+# and pip aims at /usr/local and fails on permissions. Re-running venv
+# over it writes the file back and keeps everything already installed.
+if [ -x "$PY" ] && [ ! -f "$DIR/.venv/pyvenv.cfg" ]; then
+    echo "Repairing the virtualenv in .venv (its pyvenv.cfg is missing)..."
+    REPAIR_VENV=1
+fi
+if [ ! -x "$PY" ] || [ -n "${REPAIR_VENV:-}" ]; then
     # Built with the *system* Python on purpose: Miniconda's bundled
     # Kerberos libraries conflict with Qt's networking libraries, which
     # shows up as an import error deep inside PySide6.
@@ -54,7 +63,8 @@ if [ ! -x "$PY" ]; then
         echo "quickview: Python 3.10 or newer is required ($SYS_PY is older)." >&2
         exit 1
     fi
-    echo "Creating the virtualenv in .venv (using $SYS_PY)..."
+    [ -n "${REPAIR_VENV:-}" ] ||
+        echo "Creating the virtualenv in .venv (using $SYS_PY)..."
     # --system-site-packages so a distro PySide6/Pygments is visible from
     # inside. Where the system has them, this turns a ~650 MB private copy
     # into a ~20 KB stub, and the Qt libraries end up shared with Plasma's
@@ -65,6 +75,13 @@ if [ ! -x "$PY" ]; then
     # in reachable_in_jail() below, since importing here proves nothing
     # about importing in there.
     "$SYS_PY" -m venv --system-site-packages "$DIR/.venv"
+fi
+# Everything below installs into .venv, so refuse to go on with a python
+# that is not one: pip would otherwise write to the system, or fail there.
+if ! "$PY" -c 'import sys; sys.exit(sys.prefix == sys.base_prefix)'; then
+    echo "quickview: $DIR/.venv is not a working virtualenv." >&2
+    echo "  Remove it (rm -rf \"$DIR/.venv\") and run install.sh again." >&2
+    exit 1
 fi
 
 # An older install made the venv without --system-site-packages. The flag is
@@ -86,7 +103,7 @@ fi
 # --system-site-packages also puts the *user* site directory on sys.path,
 # ahead of /usr, so a stray `pip install --user PySide6` satisfies every
 # probe below. The jail binds only /usr and APP_DIR (sandbox_flags() in
-# quickview.py), so such a copy works for the daemon and then vanishes
+# sandbox.py), so such a copy works for the daemon and then vanishes
 # inside bubblewrap — every worker dies on import and no file previews at
 # all, from an install that reported success. Only /usr and the venv count.
 # Always succeeds, printing nothing when the module is missing: under set -e
