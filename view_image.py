@@ -103,10 +103,8 @@ class ImageViewMixin:
             if len(got["frames"]) != 1:
                 return  # frame 2 is the cache copy; on_done deals with it
             job = got["job"]
-            if job is None or self._render_job is not job:
-                return  # superseded
-            if path != self.current_path:
-                return  # the user moved on while we rendered
+            if not self._is_current(job, path):
+                return  # superseded, or the user moved on while we rendered
             # Painted here rather than in on_done: the pixels are complete
             # the moment they land, and waiting for the worker's cache copy
             # would put that encode back in front of the user.
@@ -143,7 +141,7 @@ class ImageViewMixin:
                         path, ok, len(frames), error[:200],
                     )
                 return
-            if self._render_job is not got["job"] or path != self.current_path:
+            if not self._is_current(got["job"], path):
                 return  # superseded, or the user moved on while we rendered
             self._render_job = None
             log.warning("render failed: %s (%s)", path, error[:500])
@@ -295,7 +293,7 @@ class ImageViewMixin:
         state = {"frames": [], "bytes": 0, "job": None}
 
         def on_frame(payload: bytes):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             if len(payload) < 4:  # the worker is untrusted: no short reads
                 return
@@ -321,7 +319,7 @@ class ImageViewMixin:
                 self._cancel_render()
 
         def on_done(ok: bool, error: str):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             self._render_job = None
             if state["frames"]:

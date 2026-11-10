@@ -245,7 +245,7 @@ class OfficeViewMixin:
         state = {"job": None, "shown": False}
 
         def on_frame(payload: bytes):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             if self._show_workbook(path, payload):
                 state["shown"] = True
@@ -253,7 +253,7 @@ class OfficeViewMixin:
                     cache_write(key, payload)
 
         def on_done(ok: bool, error: str):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             self._render_job = None
             if not state["shown"]:

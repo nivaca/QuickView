@@ -70,7 +70,7 @@ class TextViewMixin:
         state = {"job": None, "shown": False}
 
         def on_frame(payload: bytes):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             try:
                 doc = json.loads(payload)
@@ -87,7 +87,7 @@ class TextViewMixin:
             state["shown"] = True
 
         def on_done(ok: bool, error: str):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             self._render_job = None
             if not state["shown"]:
@@ -298,7 +298,7 @@ class TextViewMixin:
         state = {"job": None, "shown": False}
 
         def on_frame(payload: bytes):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             try:
                 listing = json.loads(payload)
@@ -311,7 +311,7 @@ class TextViewMixin:
             state["shown"] = True
 
         def on_done(ok: bool, error: str):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             self._render_job = None
             if not state["shown"]:

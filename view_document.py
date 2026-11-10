@@ -813,7 +813,7 @@ class DocumentViewMixin:
         state = {"got": 0, "shown": 0, "lay": lay, "job": None}
 
         def on_frame(png: bytes):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             if on_doc is not None and state["job"].header.get("kind") == "doc":
                 # Not page images: a thumbnail-and-text payload, which is
@@ -856,7 +856,7 @@ class DocumentViewMixin:
             state["shown"] += 1
 
         def on_done(ok: bool, error: str):
-            if self._render_job is not state["job"] or path != self.current_path:
+            if not self._is_current(state["job"], path):
                 return
             self._render_job = None
             if state["shown"] == 0 and start == 0:

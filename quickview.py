@@ -444,6 +444,18 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         if job is not None:
             job.cancel()
 
+    def _is_current(self, job, path: str) -> bool:
+        """Whether an answer from job is still wanted.
+
+        Workers answer asynchronously, and the user may have moved on in the
+        meantime: only the job rendering the panel now — none has replaced
+        it — and only for the file the panel now shows, may touch the view.
+        Every render callback starts with this; an answer that skipped it
+        would paint one file's preview under another's name.
+        """
+        return (job is not None and job is self._render_job
+                and path == self.current_path)
+
     def clear_content(self):
         self._cancel_render()
         # A table of contents belongs to one document. Cleared here rather
