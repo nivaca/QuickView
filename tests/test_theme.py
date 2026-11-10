@@ -81,7 +81,8 @@ class Stylesheets(unittest.TestCase):
             "SHEET_STYLE": quickview.QuickView.SHEET_STYLE,
         }
         for name in THEMES:
-            values = palette_for(name)
+            # Colours and type: the full set the window fills them from.
+            values = theme.tokens(name, QApplication.palette())
             for label, template in sheets.items():
                 with self.subTest(theme=name, sheet=label):
                     css = template.substitute(values)

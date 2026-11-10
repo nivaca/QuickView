@@ -11,7 +11,8 @@
 """QuickView — a macOS Quick Look style previewer for KDE.
 
 Usage: quickview <file> [file ...]
-       quickview --daemon       run resident (systemd user service does this)
+       quickview --settings     open the settings window
+       quickview --daemon       run the daemon (quickview.socket starts it)
        quickview --clear-cache  empty the disk preview cache
 
 Keys:
@@ -40,7 +41,7 @@ import theme
 
 from PySide6.QtCore import (
     Qt, QUrl, QEvent, QPoint, QSize, QTimer, QFileInfo, QFileSystemWatcher,
-    QMimeDatabase, QSocketNotifier,
+    QMimeDatabase, QProcess, QSocketNotifier,
 )
 from PySide6.QtGui import (
     QGuiApplication, QKeySequence, QRegion,
@@ -55,6 +56,7 @@ from PySide6.QtWidgets import (
 from common import (
     AI_EXTENSIONS,
     ANIM_MIMES,
+    APP_DIR,
     apply_log_level,
     ARCHIVE_EXTENSIONS,
     ARCHIVE_MIMES,
@@ -119,7 +121,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         # which is what "breeze" follows — so this has to happen after the
         # application exists, not at import time with the rest of SETTINGS.
         self.theme_name = SETTINGS["panel_theme"]
-        self.theme = theme.load(self.theme_name, QApplication.palette())
+        self.theme = self._load_theme(self.theme_name)
         self.mime_db = QMimeDatabase()
         self.icon_provider = QFileIconProvider()
         self.current_path = None
@@ -250,7 +252,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         # Only breeze reads the palette, so only breeze has to be redone.
         if (event.type() == QEvent.ApplicationPaletteChange
                 and getattr(self, "theme_name", None) == "breeze"):
-            self.theme = theme.load("breeze", QApplication.palette())
+            self.theme = self._load_theme("breeze")
             # The panel only. Content widgets carry stylesheets built when
             # the preview was made, and the sole way to recolour those is to
             # re-render, which would lose the scroll position, the PDF page,
@@ -344,7 +346,8 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         log.info("settings reloaded: %s", ", ".join(sorted(changed)))
         if "log_level" in changed:
             apply_log_level()
-        if "panel_theme" in changed:
+        if changed & {"panel_theme", "code_font", "code_font_size",
+                      "ui_font_size"}:
             self.apply_panel_theme(SETTINGS["panel_theme"])
         if "disk_cache_mb" in changed:
             prune_cache()  # a smaller cap applies now, not after more writes
@@ -352,11 +355,23 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             self.arm_idle_exit()  # count down by the new rule
         return changed
 
+    @staticmethod
+    def _load_theme(name: str) -> dict:
+        """The panel's tokens — colours and type — from current SETTINGS."""
+        return theme.tokens(
+            name, QApplication.palette(),
+            code_font=SETTINGS["code_font"],
+            code_font_size=SETTINGS["code_font_size"],
+            ui_font_size=SETTINGS["ui_font_size"],
+        )
+
     def apply_panel_theme(self, name: str):
         """Switch the panel's theme in place. Content already on screen
-        keeps the colours it was built with, as on a palette change."""
+        keeps the colours it was built with, as on a palette change —
+        except text in the panel's own style sheet, such as the code font,
+        which follows at once."""
         self.theme_name = name
-        self.theme = theme.load(name, QApplication.palette())
+        self.theme = self._load_theme(name)
         self.titlebar.arrange()
         self.setStyleSheet(PANEL_STYLE.substitute(self.theme))
 
@@ -630,6 +645,18 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             self._start_next_prefetch()
 
         self._prefetch_job = task(done)
+
+    def open_settings(self):
+        """The settings window, as a process of its own.
+
+        Not a dialog of this one: the panel stays on top of everything, so
+        a window it opened could sit hidden behind it, and an idle exit
+        (daemon_mode) must not take an open settings window down with it.
+        The preview closes, as it does when a file is opened elsewhere.
+        """
+        self.dismiss("settings")
+        QProcess.startDetached(
+            sys.executable, [os.path.join(APP_DIR, "quickview.py"), "--settings"])
 
     def open_externally(self):
         if self.current_path:
@@ -910,10 +937,11 @@ def main():
         clear_cache()
         return 0
     daemon = "--daemon" in args
-    args = [a for a in args if a != "--daemon"]
+    settings = "--settings" in args
+    args = [a for a in args if a not in ("--daemon", "--settings")]
 
     paths = [ipc.normalize_arg(raw) for raw in args]
-    if not paths and not daemon:
+    if not paths and not daemon and not settings:
         print(__doc__)
         return 1
 
@@ -937,6 +965,12 @@ def main():
     # only allows if contexts are shareable from the start.
     QGuiApplication.setAttribute(Qt.AA_ShareOpenGLContexts)
     app = QApplication(sys.argv)
+    if settings:
+        # A window of its own, in the desktop's style rather than the
+        # panel's pinned Fusion below. It only writes the config file; a
+        # running daemon applies that by itself.
+        import settings_dialog
+        return settings_dialog.run()
     # Draw with Qt's own style, not the desktop's. The panel is painted
     # entirely by the stylesheets below, so a third-party QStyle has nothing
     # to contribute here — but it can still act on the window, and some do:

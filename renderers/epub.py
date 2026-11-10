@@ -11,6 +11,8 @@
 """EPUB books laid out as pages, with search and a table of contents."""
 
 from .base import (
+    DEFAULT_READING_FONT_SIZE,
+    reading_font,
     OFFICE_MAX_MEMBER_BYTES,
     OUTLINE_MAX_TITLE,
     PAGE_RATIO,
@@ -105,26 +107,31 @@ def book_theme(name: str) -> dict:
     )
 
 
-def _book_css(palette: dict) -> str:
+def _book_css(palette: dict, font: str = "",
+              font_size: int = DEFAULT_READING_FONT_SIZE) -> str:
     """The document style sheet a themed book is laid out with.
 
     Selectors rather than a body rule: the spine is inserted as HTML
     fragments through a cursor, and a fragment has no body element for a
-    body rule to reach.
+    body rule to reach. font is the reader's chosen family, "" for the
+    built-in serif; either way serif stays as the fallback.
     """
+    font, font_size = reading_font(font, font_size)
+    family = f"'{font}', serif" if font else "serif"
     return (
-        "p, li, td, th, pre, code { font-family: serif; font-size: 11pt;"
-        " color: %(fg)s; }"
-        "h1, h2, h3, h4 { font-family: serif; color: %(head)s; }"
-        "blockquote { font-family: serif; font-size: 11pt;"
+        "p, li, td, th, pre, code { font-family: %(family)s;"
+        " font-size: %(size)dpt; color: %(fg)s; }"
+        "h1, h2, h3, h4 { font-family: %(family)s; color: %(head)s; }"
+        "blockquote { font-family: %(family)s; font-size: %(size)dpt;"
         " color: %(muted)s; }"
         "hr { color: %(muted)s; }"
-    ) % palette
+    ) % {**palette, "family": family, "size": font_size}
 
 
 def epub_pages(fd: int, name: str, page_w: int, max_pages: int,
                start: int = 0, theme: str = DEFAULT_BOOK_THEME,
-               scale: float = 1.0):
+               scale: float = 1.0, font: str = "",
+               font_size: int = DEFAULT_READING_FONT_SIZE):
     """Yield (info, png_bytes) for a book, as page images.
 
     info is the same dict on every page — {"count", "chapters", "title"} —
@@ -132,7 +139,7 @@ def epub_pages(fd: int, name: str, page_w: int, max_pages: int,
     without waiting for the book to finish rendering.
     """
     page_h = int(page_w * PAGE_RATIO)
-    book = _epub_document(fd, page_w, theme)
+    book = _epub_document(fd, page_w, theme, font, font_size)
     doc = book["doc"]
     count = min(doc.pageCount(), max_pages)
     info = {
@@ -149,7 +156,8 @@ def epub_pages(fd: int, name: str, page_w: int, max_pages: int,
         yield info, png
 
 
-def _epub_document(fd: int, page_w: int, theme: str) -> dict:
+def _epub_document(fd: int, page_w: int, theme: str, font: str = "",
+                   font_size: int = DEFAULT_READING_FONT_SIZE) -> dict:
     """Lay a book out once: the document, and what was needed to build it.
 
     Rendering and searching both need the same laid-out document — a match
@@ -200,7 +208,7 @@ def _epub_document(fd: int, page_w: int, theme: str) -> dict:
 
             palette = book_theme(theme)
             doc = QTextDocument()
-            doc.setDefaultStyleSheet(_book_css(palette))
+            doc.setDefaultStyleSheet(_book_css(palette, font, font_size))
             doc.setDocumentMargin(page_w * 0.06)
             doc.setPageSize(QSizeF(page_w, page_h))
             for key, data in images.items():
@@ -248,7 +256,8 @@ def _epub_document(fd: int, page_w: int, theme: str) -> dict:
 
 def search_epub(fd: int, query: str, page_w: int, max_pages: int,
                 theme: str = DEFAULT_BOOK_THEME,
-                max_hits: int = PDF_MAX_HITS) -> dict:
+                max_hits: int = PDF_MAX_HITS, font: str = "",
+                font_size: int = DEFAULT_READING_FONT_SIZE) -> dict:
     """Case-insensitive search over a book, as rectangles in page pixels.
 
     The same answer shape as search_pdf, so the daemon paints both with the
@@ -265,7 +274,7 @@ def search_epub(fd: int, query: str, page_w: int, max_pages: int,
         return {"matches": [], "capped": False}
 
     page_h = int(page_w * PAGE_RATIO)
-    doc = _epub_document(fd, page_w, theme)["doc"]
+    doc = _epub_document(fd, page_w, theme, font, font_size)["doc"]
     # Also forces the layout: a block's lines do not exist until something
     # asks for them, and without them every match measures as no rectangle
     # at all.

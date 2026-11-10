@@ -1,10 +1,15 @@
 [Desktop Entry]
 Type=Service
 MimeType=all/all;
-Actions=QuickView;
+Actions=QuickView;QuickViewSettings;
 X-KDE-Priority=TopLevel
 
 [Desktop Action QuickView]
 Name=Quick Look
 Icon=document-preview
 Exec="@DIR@/bin/quickview" %U
+
+[Desktop Action QuickViewSettings]
+Name=QuickView Settings
+Icon=preferences-system
+Exec="@DIR@/bin/quickview" --settings

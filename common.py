@@ -280,12 +280,12 @@ PANEL_STYLE = Template("""
             border: 1px solid $border;
         }
         #titleLabel {
-            color: $text; font-size: 13px; font-weight: 600;
+            color: $text; font-size: $ui_title; font-weight: 600;
         }
         #closeBtn {
             background-color: $close_bg; color: $text_soft;
             border: none; border-radius: $radius_close;
-            font-size: 11px; font-weight: bold;
+            font-size: $ui_small; font-weight: bold;
         }
         #closeBtn:hover {
             background-color: $close_hover; color: $close_hover_text;
@@ -293,7 +293,7 @@ PANEL_STYLE = Template("""
         #openBtn {
             background-color: $btn; color: $text;
             border: none; border-radius: $radius_btn; padding: 4px 14px;
-            font-size: 12px;
+            font-size: $ui;
         }
         #openBtn:hover { background-color: $btn_hover; }
         /* No dropdown arrow on the speed button: the label already says
@@ -302,7 +302,7 @@ PANEL_STYLE = Template("""
         #tocBtn {
             background-color: $btn; color: $text_soft;
             border: none; border-radius: $radius_btn;
-            font-size: 12px; font-weight: bold;
+            font-size: $ui; font-weight: bold;
         }
         #tocBtn:hover { background-color: $btn_hover; }
         #tocBtn:checked { background-color: $accent; color: $accent_text; }
@@ -319,7 +319,7 @@ PANEL_STYLE = Template("""
         QPlainTextEdit {
             background-color: $bg; color: $text_dim;
             border: none; padding: 8px 14px;
-            font-family: monospace; font-size: 12px;
+            font-family: $code_font; font-size: $code_size;
         }
         QLabel { color: $text_dim; }
         QSlider::groove:horizontal {

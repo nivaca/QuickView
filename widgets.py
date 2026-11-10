@@ -148,6 +148,14 @@ class TitleBar(QWidget):
         self.mode_btn.clicked.connect(window.toggle_mode)
         self.mode_btn.hide()
 
+        # The settings window. Round like the contents button, and kept
+        # away from the close button so neither is hit for the other.
+        self.settings_btn = QPushButton("⚙")
+        self.settings_btn.setObjectName("tocBtn")
+        self.settings_btn.setFixedSize(24, 24)
+        self.settings_btn.setToolTip("Settings")
+        self.settings_btn.clicked.connect(window.open_settings)
+
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 8, 12, 8)
         self.arrange()
@@ -166,10 +174,10 @@ class TitleBar(QWidget):
             lay.takeAt(0)  # the widgets stay; only their slots are cleared
         if self._window.theme["close_side"] == "left":
             order = (self.close_btn, self.toc_btn, None,
-                     self.mode_btn, self.open_btn)
+                     self.mode_btn, self.open_btn, self.settings_btn)
         else:
             order = (self.toc_btn, None, self.mode_btn,
-                     self.open_btn, self.close_btn)
+                     self.open_btn, self.settings_btn, self.close_btn)
         for widget in order:
             if widget is None:
                 lay.addWidget(self.title, 1)   # the stretch, wherever it falls

@@ -11,6 +11,8 @@
 """Markdown laid out as pages, with its headings as contents."""
 
 from .base import (
+    DEFAULT_READING_FONT_SIZE,
+    reading_font,
     OUTLINE_MAX_TITLE,
     PAGE_RATIO,
     _rewound,
@@ -36,7 +38,8 @@ MARKDOWN_MAX_BYTES = 2 * 1024 * 1024
 
 def markdown_pages(fd: int, name: str, page_w: int, max_pages: int,
                    start: int = 0, theme: str = DEFAULT_BOOK_THEME,
-                   scale: float = 1.0):
+                   scale: float = 1.0, font: str = "",
+                   font_size: int = DEFAULT_READING_FONT_SIZE):
     """Yield (info, png_bytes) for a Markdown file, rendered as pages.
 
     info is {"count", "chapters"} and is the same dict on every page, like
@@ -56,9 +59,14 @@ def markdown_pages(fd: int, name: str, page_w: int, max_pages: int,
     palette = book_theme(theme)
     doc = QTextDocument()
     doc.setDocumentMargin(page_w * 0.06)
-    font = doc.defaultFont()
-    font.setPointSize(11)
-    doc.setDefaultFont(font)
+    # "" keeps Qt's default family; code blocks keep their fixed pitch
+    # either way, as they carry it in their own character format.
+    family, size = reading_font(font, font_size)
+    base = doc.defaultFont()
+    if family:
+        base.setFamily(family)
+    base.setPointSize(size)
+    doc.setDefaultFont(base)
     # The GitHub dialect is the one people actually write: tables, task
     # lists, strikethrough, fenced code.
     doc.setMarkdown(

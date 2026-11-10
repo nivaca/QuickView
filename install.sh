@@ -253,6 +253,13 @@ rm -f "$MENU_DEST"
 sed "s|@DIR@|$DIR|" "$DIR/quickview-servicemenu.desktop" > "$MENU_DEST"
 chmod +x "$MENU_DEST"
 
+# The settings window, in the application menu (and KRunner).
+mkdir -p "$HOME/.local/share/applications"
+sed "s|@DIR@|$DIR|" "$DIR/quickview-settings.desktop" \
+    > "$HOME/.local/share/applications/quickview-settings.desktop"
+command -v update-desktop-database >/dev/null 2>&1 &&
+    update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
+
 # Command on PATH (handy for terminal use: `quickview somefile`).
 mkdir -p "$HOME/.local/bin"
 ln -sf "$DIR/bin/quickview" "$HOME/.local/bin/quickview"

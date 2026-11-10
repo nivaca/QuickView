@@ -19,6 +19,10 @@ fallback path.
 """
 
 from .base import (
+    DEFAULT_READING_FONT_SIZE,
+    READING_FONT_SIZE_MAX,
+    READING_FONT_SIZE_MIN,
+    reading_font,
     PNG_QUALITY,
     JPEG_QUALITY,
     HIGHLIGHT_MAX_BYTES,
@@ -233,6 +237,10 @@ from .markdown import (
 # Every name, private ones included: worker.py, the CLI helpers and the
 # tests all reach in through `renderers.<name>`.
 __all__ = [
+    "DEFAULT_READING_FONT_SIZE",
+    "READING_FONT_SIZE_MAX",
+    "READING_FONT_SIZE_MIN",
+    "reading_font",
     "PNG_QUALITY",
     "JPEG_QUALITY",
     "HIGHLIGHT_MAX_BYTES",

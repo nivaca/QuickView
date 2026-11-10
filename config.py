@@ -55,6 +55,12 @@ _SETTINGS = {
     "disk_cache_mb": ("cache", int, 256, "QUICKVIEW_DISK_CACHE_MB", 0, 65536),
     "memory_cache_mb": ("cache", int, 96, "QUICKVIEW_MEMORY_CACHE_MB",
                         8, 8192),
+    "code_font": ("fonts", str, "monospace", "QUICKVIEW_CODE_FONT", None, None),
+    "code_font_size": ("fonts", int, 12, "QUICKVIEW_CODE_FONT_SIZE", 6, 48),
+    "reading_font": ("fonts", str, "", "QUICKVIEW_READING_FONT", None, None),
+    "reading_font_size": ("fonts", int, 11, "QUICKVIEW_READING_FONT_SIZE",
+                          6, 36),
+    "ui_font_size": ("fonts", int, 12, "QUICKVIEW_UI_FONT_SIZE", 9, 18),
     "daemon_mode": ("daemon", str, "on-demand", "QUICKVIEW_DAEMON_MODE",
                     None, None),
     "idle_minutes": ("daemon", int, 10, "QUICKVIEW_IDLE_MINUTES", 1, 1440),
@@ -112,6 +118,20 @@ office_engine = libreoffice
 # two settings are independent, and the default one-dark is written for a
 # dark background, so its greys are close to unreadable on a pale one.
 panel_theme = quicklook
+
+[fonts]
+# Source files and plain text: a font family and its size in pixels.
+# "monospace" is the desktop's own fixed-width font.
+code_font = monospace
+code_font_size = 12
+
+# EPUB books and rendered Markdown: a family and its size in points. Empty
+# keeps the built-in look — serif for books, the default sans for Markdown.
+reading_font =
+reading_font_size = 11
+
+# The panel's own text — title, buttons, sidebar, tabs — in pixels.
+ui_font_size = 12
 
 [logging]
 # How much the daemon writes to ~/.local/share/quickview/quickview.log and
@@ -181,6 +201,20 @@ def _clamp(value, low, high):
     return value
 
 
+# Font families are written into style sheets — the panel's, and the page
+# CSS a book is laid out with in the jail — so a name is kept to what font
+# names are made of. Anything else ("}", ";", quotes) could end the rule it
+# sits in and start one of its own.
+_FONT_KEYS = ("code_font", "reading_font")
+FONT_NAME_MAX = 64
+
+
+def clean_font_family(name: str) -> str:
+    """A font family name reduced to letters, digits, spaces and -_."""
+    kept = "".join(c for c in (name or "") if c.isalnum() or c in " -_.")
+    return " ".join(kept.split())[:FONT_NAME_MAX]
+
+
 def load(path: str = CONFIG_FILE) -> dict:
     """Every setting, resolved. Never raises: bad input falls back."""
     parsed = configparser.ConfigParser()
@@ -209,6 +243,12 @@ def load(path: str = CONFIG_FILE) -> dict:
                 out[name] = default  # a typo reads as "the default", not as
                 continue             # a book with no colours at all
             out[name] = raw.lower() if choices else (raw or default)
+            if name in _FONT_KEYS:
+                # An empty reading_font is a value (the built-in look), not
+                # a missing one; a name that cleans to nothing is a typo.
+                out[name] = clean_font_family(raw) if raw else default
+                if raw and not out[name]:
+                    out[name] = default
     return out
 
 
@@ -227,3 +267,73 @@ def write_default_if_missing(path: str = CONFIG_FILE) -> bool:
         return True
     except OSError:
         return False  # read-only home, or a race with another daemon
+
+
+def format_value(name: str, value) -> str:
+    """How a setting is written in the file."""
+    return str(value).strip()
+
+
+def save(values: dict, path: str = CONFIG_FILE):
+    """Write settings into the file, keeping everything else in it.
+
+    The file is the commented template people read and edit by hand, so
+    it is updated in place rather than regenerated: each `name = value`
+    line is rewritten where it stands, a commented-out one ("# name = …")
+    is taken back into use, and a setting the file does not mention yet —
+    one added since it was written — goes at the end of its section, or of
+    the file under a new section heading. Comments and unknown lines are
+    left exactly as they were. Written to a temporary file and renamed into
+    place, so the daemon's watcher never reads half a file.
+    """
+    import re
+
+    try:
+        with open(path, encoding="utf-8") as fh:
+            lines = fh.read().splitlines()
+    except FileNotFoundError:
+        lines = DEFAULT_FILE.splitlines()
+
+    pending = {name: format_value(name, v) for name, v in values.items()
+               if name in _SETTINGS}
+    section = None
+    section_end = {}  # section -> index after its last non-blank line
+    for i, line in enumerate(lines):
+        head = re.match(r"\s*\[([^\]]+)\]\s*$", line)
+        if head:
+            section = head.group(1).strip()
+            section_end.setdefault(section, i + 1)
+            continue
+        if section is not None and line.strip():
+            section_end[section] = i + 1
+        entry = re.match(r"\s*#?\s*([A-Za-z_]+)\s*=", line)
+        if not entry:
+            continue
+        name = entry.group(1)
+        if name in pending and _SETTINGS[name][0] == section:
+            lines[i] = f"{name} = {pending.pop(name)}"
+
+    # Whatever was not found: append, latest sections first so the earlier
+    # insertion points stay valid.
+    by_section = {}
+    for name, value in pending.items():
+        by_section.setdefault(_SETTINGS[name][0], []).append(f"{name} = {value}")
+    for sec in sorted((s for s in by_section if s in section_end),
+                      key=lambda s: section_end[s], reverse=True):
+        at = section_end[sec]
+        lines[at:at] = by_section.pop(sec)
+    for sec, entries in by_section.items():
+        if lines and lines[-1].strip():
+            lines.append("")
+        lines += [f"[{sec}]"] + entries
+
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    os.replace(tmp, path)
+
+
+def defaults() -> dict:
+    """Every setting's built-in value."""
+    return {name: spec[2] for name, spec in _SETTINGS.items()}

@@ -123,7 +123,7 @@ class Reload(unittest.TestCase):
         self.assertEqual(window.theme_name, "breeze")
         self.assertIs(lay.itemAt(lay.count() - 1).widget(),
                       window.titlebar.close_btn, "close button moves right")
-        self.assertEqual(lay.count(), 5, "every button laid out exactly once")
+        self.assertEqual(lay.count(), 6, "every button laid out exactly once")
 
     def test_turning_the_disk_cache_off_applies_at_once(self):
         self.write("[cache]\ndisk_cache_mb = 0\n")

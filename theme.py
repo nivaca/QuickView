@@ -191,8 +191,35 @@ def breeze(palette) -> dict:
     }
 
 
+def fonts(code_font: str = "monospace", code_font_size: int = 12,
+          ui_font_size: int = 12) -> dict:
+    """The type tokens every stylesheet fills alongside the colours.
+
+    One base size for the panel's own text, with the title a step above
+    and the small print a step below, so the three stay in proportion
+    whatever the base. The family arrives cleaned (config.clean_font_family)
+    — it is written into the style sheet — and is quoted unless it is the
+    generic name, which fontconfig resolves to the desktop's fixed font.
+    """
+    family = code_font if code_font == "monospace" else f'"{code_font}"'
+    return {
+        "code_font": family,
+        "code_size": f"{code_font_size}px",
+        "ui": f"{ui_font_size}px",
+        "ui_small": f"{ui_font_size - 1}px",
+        "ui_title": f"{ui_font_size + 1}px",
+    }
+
+
 def load(name: str, palette=None) -> dict:
-    """The named theme, falling back to the default one."""
+    """The named theme's colours and geometry, falling back to the default."""
     if name == "breeze" and palette is not None:
         return breeze(palette)
     return dict(QUICKLOOK)
+
+
+def tokens(name: str, palette=None, **font_settings) -> dict:
+    """Everything a stylesheet is filled from: the theme, plus the fonts."""
+    values = load(name, palette)
+    values.update(fonts(**font_settings))
+    return values

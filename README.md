@@ -485,6 +485,20 @@ in `crash.log`.
 
 ## Settings
 
+The settings window edits everything below. Open it from **QuickView
+Settings** in the application menu (or KRunner), by right-clicking any file
+in Dolphin, with the **⚙** button in the panel, or with:
+
+```bash
+quickview --settings
+```
+
+It is a window of its own, so it works whether or not the daemon is
+running, and it only writes the settings file — which keeps your comments,
+since it changes values in place. Fonts can be any installed family; a
+configured one that is not installed is kept, and the window says so.
+
+The file itself is
 `~/.config/quickview/quickview.conf`, written with the defaults commented in
 the first time the daemon starts. The daemon watches the file, so a saved
 edit applies from the next preview on — no restart. The panel theme and the
@@ -500,6 +514,11 @@ the daemon starts.
 | `[preview] text_limit_kb` | `1024` | How much of a text file to read before truncating |
 | `[preview] pdf_max_pages` | `50` | Pages rendered from a PDF or office document |
 | `[preview] office_engine` | `libreoffice` | How office documents are laid out: `libreoffice` (exact, ~1-2 s on first open, when installed) or `builtin` (instant, approximate — decks show their thumbnail, and doc/xls/ppt/rtf the metadata card) |
+| `[fonts] code_font` | `monospace` | Font family for source files and plain text; `monospace` is the desktop's fixed-width font |
+| `[fonts] code_font_size` | `12` | Its size, in pixels |
+| `[fonts] reading_font` | *(empty)* | Font family for EPUB books and rendered Markdown; empty keeps the built-in look (serif for books, sans for Markdown). Pages are re-rendered when it changes |
+| `[fonts] reading_font_size` | `11` | Its size, in points |
+| `[fonts] ui_font_size` | `12` | The panel's own text — title, buttons, sidebar, tabs — in pixels |
 | `[logging] log_level` | `info` | How much the daemon writes to the log and the journal: `error`, `warning`, `info`, `debug` |
 | `[cache] disk_cache_mb` | `256` | Rendered previews kept on disk; `0` disables it |
 | `[cache] memory_cache_mb` | `96` | Decoded pixmaps kept in memory |
@@ -617,7 +636,11 @@ Then bind Space in Dolphin (one-time):
   and PDF renderers, kept for reproducing a render by hand
 - `bin/quickview` — launcher: compiled fast path, then `client.py`, then a
   full launch as fallback
-- `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look")
+- `settings_dialog.py` — the settings window (`quickview --settings`)
+- `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look" and
+  "QuickView Settings")
+- `quickview-settings.desktop` — the settings window's application-menu
+  entry
 - `.venv/` — self-contained PySide6 install, created by `install.sh` (no
   system packages touched)
 

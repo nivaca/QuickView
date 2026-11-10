@@ -5,6 +5,37 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 2026-11-10 — a settings window, and fonts
+
+### Added
+
+- **A settings window.** Every setting in `quickview.conf`, in five tabs —
+  Appearance, Fonts, Previews, Background (the daemon mode and its idle
+  time), Cache & logs — with OK, Apply, Cancel and Restore Defaults, a
+  "Clear cache now" button and a shortcut to the log folder. It opens from
+  **QuickView Settings** in the application menu, from Dolphin's context
+  menu, from a new **⚙** button in the panel, and with
+  `quickview --settings`. It is a process of its own, so it works with no
+  daemon running, and it only writes the file: the daemon applies what
+  changed, as it does any edit. Bounds and choices come from `config.py`,
+  so it cannot offer a value the loader would refuse; a setting overridden
+  by a `QUICKVIEW_*` environment variable is pointed out; and one window
+  at a time.
+- **Font settings.** `[fonts] code_font` and `code_font_size` for source
+  files, `reading_font` and `reading_font_size` for EPUB books and
+  rendered Markdown, and `ui_font_size` for the panel's own text (the title
+  a step above it, small print a step below). The defaults are exactly the
+  fonts used before. The reading font changes where pages break, so book
+  and Markdown pages — and their contents, whose page numbers come from
+  the layout — are cached per font, and a book's search lays out with the
+  same font so matches land where the text is. Font names are reduced to
+  letters, digits, spaces and `-_.` before they go into a style sheet,
+  in the daemon and again in the jail.
+- **`config.save()`** updates the settings file in place: values are
+  rewritten where they stand, commented-out ones taken back into use, new
+  ones added to their section, and comments kept — written to a
+  temporary file and renamed, so the daemon never reads half of it.
+
 ## 2026-11-10 — the daemon on demand
 
 ### Changed

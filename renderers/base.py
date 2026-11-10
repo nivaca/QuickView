@@ -157,6 +157,26 @@ def raw_frame(img) -> tuple:
     }
 
 
+# The reading font arrives in a job from the daemon and is written into a
+# page style sheet, so it is filtered again here rather than trusted: the
+# same rule as config.clean_font_family. Sizes in points.
+READING_FONT_SIZE_MIN = 6
+READING_FONT_SIZE_MAX = 36
+DEFAULT_READING_FONT_SIZE = 11
+
+
+def reading_font(family, size) -> tuple:
+    """(family, size) for page layout: a clean family name ("" for the
+    built-in look) and a point size within bounds."""
+    kept = "".join(c for c in str(family or "") if c.isalnum() or c in " -_.")
+    try:
+        size = int(size)
+    except (TypeError, ValueError):
+        size = DEFAULT_READING_FONT_SIZE
+    size = max(READING_FONT_SIZE_MIN, min(READING_FONT_SIZE_MAX, size))
+    return " ".join(kept.split())[:64], size
+
+
 def _rewound(fd: int):
     """A private, rewound file object over an inherited descriptor."""
     import os

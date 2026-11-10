@@ -67,6 +67,20 @@ class DocumentViewMixin:
     # the moment it arrives. Pages land in the disk cache individually, so
     # a repeat view never touches the PDF parser at all.
 
+    @staticmethod
+    def reading_layout() -> dict:
+        """What books and Markdown are laid out with, as the worker is told."""
+        return {"theme": SETTINGS["book_theme"],
+                "font": SETTINGS["reading_font"],
+                "font_size": SETTINGS["reading_font_size"]}
+
+    @staticmethod
+    def reading_tag() -> str:
+        """The reading font, for cache keys. Unlike the colours it moves
+        the page breaks, so the pages *and* the contents (whose page numbers
+        come from the layout) are keyed by it."""
+        return f"{SETTINGS['reading_font']}/{SETTINGS['reading_font_size']}"
+
     def page_geometry(self) -> tuple:
         """(page width, device pixel ratio) a page view renders at here.
 
@@ -306,9 +320,10 @@ class DocumentViewMixin:
             return
 
         def page_key(i: int) -> str:
-            return cache_key(path, st, page_w, 0, f"md-{SETTINGS['book_theme']}{i}@{scale:g}")
+            return cache_key(path, st, page_w, 0,
+                             f"md-{SETTINGS['book_theme']}-{self.reading_tag()}{i}@{scale:g}")
 
-        toc_key = cache_key(path, st, page_w, 0, "toc2")
+        toc_key = cache_key(path, st, page_w, 0, f"toc2-{self.reading_tag()}")
         cached_toc = cache_read(toc_key)
         if cached_toc is not None:
             try:
@@ -325,7 +340,7 @@ class DocumentViewMixin:
                 total = int(img0.text("QuickView:PageCount"))
             except ValueError:
                 pass
-        extra = {"name": os.path.basename(path), "theme": SETTINGS["book_theme"]}
+        extra = {"name": os.path.basename(path), **self.reading_layout()}
         # Pages and headings are produced together, so a cache holding one
         # without the other is half a preview: re-render instead. The
         # contents entry is written even when a document has no headings at
@@ -359,9 +374,10 @@ class DocumentViewMixin:
             return
 
         def page_key(i: int) -> str:
-            return cache_key(path, st, page_w, 0, f"epub-{SETTINGS['book_theme']}{i}@{scale:g}")
+            return cache_key(path, st, page_w, 0,
+                             f"epub-{SETTINGS['book_theme']}-{self.reading_tag()}{i}@{scale:g}")
 
-        toc_key = cache_key(path, st, page_w, 0, "toc2")
+        toc_key = cache_key(path, st, page_w, 0, f"toc2-{self.reading_tag()}")
         cached_toc = cache_read(toc_key)
         if cached_toc is not None:
             try:
@@ -377,7 +393,7 @@ class DocumentViewMixin:
                 total = int(img0.text("QuickView:PageCount"))
             except ValueError:
                 pass
-        extra = {"name": os.path.basename(path), "theme": SETTINGS["book_theme"]}
+        extra = {"name": os.path.basename(path), **self.reading_layout()}
         # A cached book with no cached contents is a cache from before the
         # sidebar existed (or a pruned entry): re-render rather than show a
         # book with its chapters missing, since the two are produced
@@ -405,12 +421,12 @@ class DocumentViewMixin:
     TOC_STYLE = Template("""
         QWidget { background-color: $bg_alt; }
         #tocHead {
-            color: $text_head; font-size: 11px; font-weight: 600;
+            color: $text_head; font-size: $ui_small; font-weight: 600;
             padding: 10px 12px 6px 12px; letter-spacing: 1px;
         }
         QTreeWidget {
             background-color: $bg_alt; color: $tree_text; border: none;
-            border-right: 1px solid $line; font-size: 12px;
+            border-right: 1px solid $line; font-size: $ui;
             outline: none; padding: 6px 0;
         }
         QTreeWidget::item { padding: 4px 2px; border-radius: 4px; }
@@ -737,9 +753,9 @@ class DocumentViewMixin:
                "page_w": self._find_page_w, "max_pages": SETTINGS["pdf_max_pages"]}
         if self._find_op == "epubsearch":
             # The book has to be laid out again to place a match, and a
-            # different palette is a different style sheet — so the search
-            # is told which one the pages on screen were rendered with.
-            job["theme"] = SETTINGS["book_theme"]
+            # different palette or font is a different style sheet — so the
+            # search is told what the pages on screen were rendered with.
+            job.update(self.reading_layout())
         self._find_job = SandboxJob(
             self.pool, self._find_path, job, on_frame, on_done, self,
         )

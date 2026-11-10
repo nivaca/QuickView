@@ -271,7 +271,7 @@ class OfficeViewMixin:
         QTableWidget {
             background-color: $bg; alternate-background-color: $bg_alt;
             color: $text_dim; gridline-color: $line; border: none;
-            font-size: 12px;
+            font-size: $ui;
         }
         QTableWidget::item { padding: 2px 6px; }
         QTableWidget::item:selected {
@@ -282,7 +282,7 @@ class OfficeViewMixin:
             background-color: $surface; color: $text_faint; border: none;
             border-right: 1px solid $line;
             border-bottom: 1px solid $line;
-            padding: 3px 6px; font-size: 11px;
+            padding: 3px 6px; font-size: $ui_small;
         }
         QTableCornerButton::section {
             background-color: $surface; border: none;
@@ -296,7 +296,7 @@ class OfficeViewMixin:
             border: 1px solid $line; border-top: none;
             border-bottom-left-radius: $radius_btn;
             border-bottom-right-radius: $radius_btn;
-            padding: 4px 14px; margin-right: 3px; font-size: 12px;
+            padding: 4px 14px; margin-right: 3px; font-size: $ui;
         }
         QTabBar::tab:selected {
             background-color: $tab_sel; color: $tab_sel_text;
@@ -396,7 +396,7 @@ class OfficeViewMixin:
 
         status = QLabel()
         status.setStyleSheet(
-            "color:{text_status}; font-size:11px; padding:5px 12px;"
+            "color:{text_status}; font-size:{ui_small}; padding:5px 12px;"
             "background-color:{bg};".format(**self.theme)
         )
 

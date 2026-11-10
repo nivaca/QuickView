@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=QuickView Settings
+GenericName=Quick Look Previewer Settings
+Comment=Fonts, appearance and background behaviour of the QuickView previewer
+Exec="@DIR@/bin/quickview" --settings
+Icon=document-preview
+Categories=Settings;DesktopSettings;
+Keywords=quick look;preview;quickview;fonts;daemon;
+StartupNotify=true

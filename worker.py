@@ -192,6 +192,7 @@ def op_epub(job, src, fd, out):
         job["max_pages"], job.get("start", 0),
         theme=job.get("theme", renderers.DEFAULT_BOOK_THEME),
         scale=job.get("scale", 1.0),
+        font=job.get("font", ""), font_size=job.get("font_size", 11),
     ):
         if first:
             out.header(info["count"], kind="pages", toc=info["chapters"],
@@ -211,6 +212,7 @@ def op_markdown(job, src, fd, out):
         job.get("start", 0),
         job.get("theme", renderers.DEFAULT_BOOK_THEME),
         job.get("scale", 1.0),
+        font=job.get("font", ""), font_size=job.get("font_size", 11),
     ):
         if first:
             # The headings travel with the pages, as a book's
@@ -231,6 +233,7 @@ def op_epubsearch(job, src, fd, out):
         fd, job.get("query", ""),
         job["page_w"], job["max_pages"],
         job.get("theme", renderers.DEFAULT_BOOK_THEME),
+        font=job.get("font", ""), font_size=job.get("font_size", 11),
     ))
 
 

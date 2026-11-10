@@ -45,6 +45,7 @@ pkill -f "^$DIR/.venv/bin/python $DIR/quickview.py" 2>/dev/null || true
 rm -f "${XDG_RUNTIME_DIR:-/tmp}/quickview-$(id -u)"
 
 rm -f "$HOME/.local/share/kio/servicemenus/quickview-servicemenu.desktop"
+rm -f "$HOME/.local/share/applications/quickview-settings.desktop"
 
 # Only our own symlink: someone else's quickview on PATH is not ours to
 # delete, so check where it points before removing it.
