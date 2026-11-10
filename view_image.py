@@ -68,14 +68,18 @@ class ImageViewMixin:
             self.show_message(str(exc))
             return
         key = cache_key(path, st, max_w, max_h)
+        if not self._show_cached_image(path, key):
+            self._render_image(path, key, max_w, max_h)
 
+    def _show_cached_image(self, path: str, key: str) -> bool:
+        """Show the preview from the memory or disk tier, if either has it."""
         hit = self._mem_cache.get(key)
         if hit is not None:
             self._mem_cache.move_to_end(key)
             log.debug("memory cache hit: %s", path)
             pix, dims, _nbytes = hit
             self._display_image(path, pix, dims)
-            return
+            return True
 
         png = cache_read(key)
         if png is not None:
@@ -83,13 +87,16 @@ class ImageViewMixin:
             if not img.isNull():
                 log.debug("disk cache hit: %s", path)
                 self._show_decoded(path, key, img)
-                return
+                return True
             # A bad entry would otherwise be served on every view until the
             # source file's mtime changes — drop it and fall through to a
             # fresh render.
             log.warning("dropping corrupt cache entry for %s", path)
             cache_remove(key)
+        return False
 
+    def _render_image(self, path: str, key: str, max_w: int, max_h: int):
+        """Decode in the jail, show the pixels, then cache the encoded copy."""
         # Decode asynchronously in the jail: a slow or hostile file must not
         # freeze the event loop — keys, the close button and the daemon socket
         # stay live while the worker works.
