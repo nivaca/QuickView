@@ -1,5 +1,6 @@
 .venv/
 __pycache__/
+.ruff_cache/
 
 # Compiled fast-path client, built by install.sh from client.rs
 bin/quickview-client

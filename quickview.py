@@ -55,10 +55,10 @@ from renderers import (
 
 from PySide6.QtCore import (
     Qt, QUrl, QEvent, QPoint, QRect, QSize, QObject, QSocketNotifier,
-    QThreadPool, QTimer, QFileInfo, QMimeDatabase, QStandardPaths, Signal,
+    QThreadPool, QTimer, QFileInfo, QMimeDatabase, Signal,
 )
 from PySide6.QtGui import (
-    QAction, QFont, QGuiApplication, QIcon, QImage, QKeySequence, QRegion,
+    QFont, QGuiApplication, QIcon, QImage, QKeySequence, QRegion,
     QPainter, QPixmap, QShortcut, QColor, QDesktopServices,
     QTextCharFormat, QTextCursor,
 )
@@ -841,7 +841,7 @@ class MediaSession(QObject):
         except OSError as exc:
             parent.close()
             child.close()
-            QTimer.singleShot(0, lambda: handlers["error"](str(exc)))
+            QTimer.singleShot(0, lambda msg=str(exc): handlers["error"](msg))
             return
 
         # A memfd is the frame transport: an anonymous shared buffer that
@@ -863,9 +863,13 @@ class MediaSession(QObject):
         except OSError as exc:
             for fd in (media_fd, frame_fd):
                 os.close(fd)
+            # stop() is a no-op for a session that never started, so the
+            # frame buffer is unmapped here or not at all.
+            self._mm.close()
+            self._mm = None
             parent.close()
             child.close()
-            QTimer.singleShot(0, lambda: handlers["error"](str(exc)))
+            QTimer.singleShot(0, lambda msg=str(exc): handlers["error"](msg))
             return
         finally:
             child.close()
@@ -891,7 +895,7 @@ class MediaSession(QObject):
             )
             parent.sendall(job)
         except OSError as exc:
-            QTimer.singleShot(0, lambda: handlers["error"](str(exc)))
+            QTimer.singleShot(0, lambda msg=str(exc): handlers["error"](msg))
         finally:
             os.close(media_fd)
             os.close(frame_fd)  # the worker and our mmap keep it alive
@@ -1069,7 +1073,7 @@ class SandboxJob(QObject):
         except OSError as exc:
             self._worker.kill()
             self._worker = None
-            QTimer.singleShot(0, lambda: self._finish(False, str(exc)))
+            QTimer.singleShot(0, lambda msg=str(exc): self._finish(False, msg))
             return
 
         sock = self._worker.sock
@@ -1096,7 +1100,7 @@ class SandboxJob(QObject):
             )
             sock.sendall(payload)
         except OSError as exc:
-            QTimer.singleShot(0, lambda: self._finish(False, str(exc)))
+            QTimer.singleShot(0, lambda msg=str(exc): self._finish(False, msg))
         finally:
             os.close(fd)  # the worker holds its own copy now
 

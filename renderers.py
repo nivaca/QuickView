@@ -600,7 +600,6 @@ def _psd_image(planes: list, ow: int, oh: int, kind: str, alpha, palette: bytes)
         # of light the ink lets through: R = C x K / 255, and so on. That is
         # a multiply blend, which Qt does per pixel in C++ — a Python loop
         # over a few million pixels would cost more than the whole decode.
-        from PySide6.QtCore import Qt
         from PySide6.QtGui import QPainter
 
         black = bytearray(npx * 4)
@@ -1688,8 +1687,8 @@ def _pages_via_qtextdocument(fd: int, name: str, page_w: int, max_pages: int,
                              start: int = 0, scale: float = 1.0):
     import zipfile
 
-    from PySide6.QtCore import QRectF, QSizeF, Qt, QUrl
-    from PySide6.QtGui import QImage, QPainter, QTextDocument
+    from PySide6.QtCore import QSizeF, QUrl
+    from PySide6.QtGui import QImage, QTextDocument
 
     page_h = int(page_w * PAGE_RATIO)
     with _rewound(fd) as fh:
