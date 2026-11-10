@@ -37,20 +37,39 @@ from PySide6.QtGui import (
 
 
 SOCKET_PATH = ipc.socket_path()
-# User settings, read once at startup — see config.py for the file's shape
-# and why the surface is deliberately this small.
+# User settings — see config.py for the file's shape and why the surface is
+# deliberately this small. One dict for the daemon's whole life: a reload
+# (reload_settings) updates it in place, so every module sees the new values
+# as long as it reads SETTINGS[...] when it needs one, never a copy taken at
+# import. Notes on particular keys:
+#
+#   book_theme  page colours for EPUB books and Markdown — see
+#               renderers.BOOK_THEMES. Passed to the worker (which owns the
+#               colours) and folded into the page cache key, so switching
+#               themes re-renders instead of serving the old one's pages.
+#   code_style  any Pygments style name: dracula, gruvbox-dark, nord…
+#               one-dark's own background (#282C34) is a shade off the
+#               panel's #222226, so it sits in this panel unrecoloured.
 SETTINGS = config.load()
 
-TEXT_PREVIEW_LIMIT = SETTINGS["text_limit_kb"] * 1024
-# Page colours for EPUB books — see renderers.BOOK_THEMES for the palettes.
-# The name is passed to the worker (which owns the colours) and folded into
-# the page cache key, so switching themes re-renders instead of serving the
-# old one's pages back.
-BOOK_THEME = SETTINGS["book_theme"]
-# Any Pygments style name: dracula, gruvbox-dark, nord, monokai, native…
-# one-dark's own background (#282C34) is a shade off the panel's #222226,
-# so its palette sits in this panel without recolouring anything.
-CODE_STYLE = SETTINGS["code_style"]
+
+def text_limit() -> int:
+    """How much of a text file is read, in bytes."""
+    return SETTINGS["text_limit_kb"] * 1024
+
+
+def reload_settings(path: str = config.CONFIG_FILE) -> set:
+    """Re-read the config file into SETTINGS, in place; the changed keys.
+
+    config.load() never raises, so a half-written or malformed file reads
+    as defaults for whatever it gets wrong, and the next save fixes it.
+    Environment variables still win over the file, as they do at startup.
+    """
+    new = config.load(path)
+    changed = {k for k in new if new[k] != SETTINGS.get(k)}
+    SETTINGS.clear()
+    SETTINGS.update(new)
+    return changed
 
 # Listed by container, not by application: a preview of any of these is a
 # listing of what is inside, never an extraction.
@@ -136,10 +155,9 @@ TEXT_EXTENSIONS = {
 
 APP_DIR = os.path.dirname(os.path.abspath(__file__))
 WORKER_HELPER = os.path.join(APP_DIR, "worker.py")
-# Cap on rendered pages so a 2000-page (or hostile) PDF can't grind the
-# helper for minutes; the title says when the preview is truncated.
-PDF_MAX_PAGES = SETTINGS["pdf_max_pages"]
-OFFICE_ENGINE = SETTINGS["office_engine"]
+# SETTINGS["pdf_max_pages"] caps rendered pages so a 2000-page (or hostile)
+# PDF can't grind the helper for minutes; the title says when the preview is
+# truncated.
 
 CACHE_DIR = os.path.join(
     os.environ.get("XDG_CACHE_HOME", os.path.expanduser("~/.cache")),
@@ -153,11 +171,19 @@ CACHE_DIR = os.path.join(
 # which is what the PDF path's "v2" used to be.
 CACHE_VERSION = 3
 
-CACHE_CAP_BYTES = SETTINGS["disk_cache_mb"] * 1024 * 1024
-# The memory tier holds screen-sized pixmaps (~25 MB each on a 4K display),
-# so it must be bounded by bytes, not entry count, in a process that never
-# exits.
-MEM_CACHE_BYTES = SETTINGS["memory_cache_mb"] * 1024 * 1024
+
+
+def cache_cap_bytes() -> int:
+    """The disk tier's cap; 0 turns the disk cache off."""
+    return SETTINGS["disk_cache_mb"] * 1024 * 1024
+
+
+def mem_cache_bytes() -> int:
+    """The memory tier holds screen-sized pixmaps (~25 MB each on a 4K
+    display), so it must be bounded by bytes, not entry count, in a process
+    that never exits."""
+    return SETTINGS["memory_cache_mb"] * 1024 * 1024
+
 
 DATA_DIR = os.path.join(
     os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")),
@@ -194,6 +220,12 @@ ANIM_MAX_PIXMAP_BYTES = 256 * 1024 * 1024
 log = logging.getLogger("quickview")
 
 
+def apply_log_level():
+    # config.py's _CHOICES guarantees one of error/warning/info/debug, so the
+    # attribute is always there; the default is belt and braces.
+    log.setLevel(getattr(logging, SETTINGS["log_level"].upper(), logging.INFO))
+
+
 def setup_logging():
     os.makedirs(DATA_DIR, exist_ok=True)
     fmt = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
@@ -205,9 +237,7 @@ def setup_logging():
     err_h.setFormatter(fmt)
     log.addHandler(file_h)
     log.addHandler(err_h)
-    # config.py's _CHOICES guarantees one of error/warning/info/debug, so the
-    # attribute is always there; the default is belt and braces.
-    log.setLevel(getattr(logging, SETTINGS["log_level"].upper(), logging.INFO))
+    apply_log_level()
 
     # Native crashes (a segfault inside a Qt decoder, etc.) can't be caught
     # by Python's exception machinery — faulthandler dumps a traceback to
@@ -374,16 +404,16 @@ def cache_remove(key: str):
 
 
 # Rescanning the whole cache dir on every write is O(entries); amortize by
-# pruning only after enough new bytes have accumulated to matter. Starting
-# at the threshold forces one prune on the first write of a session, which
-# also cleans up an over-cap cache left behind by a previous run.
-_PRUNE_EVERY_BYTES = CACHE_CAP_BYTES // 8
-_unpruned_bytes = _PRUNE_EVERY_BYTES
+# pruning only after an eighth of the cap in new bytes has accumulated.
+# Starting below zero forces one prune on the first write of a session,
+# which also cleans up an over-cap cache left behind by a previous run.
+_unpruned_bytes = -1
 
 
 def cache_write(key: str, png: bytes):
     global _unpruned_bytes
-    if CACHE_CAP_BYTES <= 0:
+    cap = cache_cap_bytes()
+    if cap <= 0:
         return  # disk cache turned off in the config file
     try:
         os.makedirs(CACHE_DIR, exist_ok=True)
@@ -394,12 +424,14 @@ def cache_write(key: str, png: bytes):
     except OSError as exc:
         log.warning("cache write failed: %s", exc)
         return
-    _unpruned_bytes += len(png)
+    if _unpruned_bytes >= 0:
+        _unpruned_bytes += len(png)
     # Reset the counter only after a successful prune — zeroing it before a
-    # prune that fails would suppress the next attempt until another
-    # _PRUNE_EVERY_BYTES of writes accumulates, leaving an over-cap cache
-    # in place for hours on a cache-hit-heavy workload.
-    if _unpruned_bytes >= _PRUNE_EVERY_BYTES and prune_cache():
+    # prune that fails would suppress the next attempt until another eighth
+    # of the cap in writes accumulates, leaving an over-cap cache in place
+    # for hours on a cache-hit-heavy workload.
+    due = _unpruned_bytes < 0 or _unpruned_bytes >= cap // 8
+    if due and prune_cache():
         _unpruned_bytes = 0
 
 
@@ -417,7 +449,7 @@ def prune_cache() -> bool:
         return False
     entries.sort()
     for _mtime, size, fp in entries:
-        if total <= CACHE_CAP_BYTES:
+        if total <= cache_cap_bytes():
             break
         try:
             os.unlink(fp)

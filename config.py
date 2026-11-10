@@ -21,10 +21,10 @@ INI rather than TOML because tomllib is Python 3.11 and this project
 supports 3.10. Precedence is environment variable, then file, then default:
 the env var stays useful for trying a setting without editing anything.
 
-Read once at startup. The daemon is resident, so changing the file takes
-effect on:
-
-    systemctl --user restart quickview.service
+Read at startup, and again whenever the file changes: the daemon watches
+it (QuickView.watch_settings), so a saved edit applies from the next
+preview on, with no restart. Environment variables are read at startup
+only — they belong to the daemon's process, not to the file.
 """
 
 import configparser
@@ -58,8 +58,8 @@ _SETTINGS = {
 }
 
 DEFAULT_FILE = """\
-# QuickView settings. Restart the daemon to apply changes:
-#     systemctl --user restart quickview.service
+# QuickView settings. Changes apply as soon as the file is saved, from the
+# next preview on — no restart needed.
 #
 # Every value below is the built-in default, shown for reference. Delete a
 # line to go back to it. Each one can also be overridden for a single run

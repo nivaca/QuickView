@@ -43,7 +43,7 @@ from common import (
     log,
     MAX_FRAME_BYTES,
     MEDIA_SLOTS,
-    OFFICE_ENGINE,
+    SETTINGS,
     WORKER_HELPER,
 )
 import renderers
@@ -158,7 +158,7 @@ def _office_suite_binds() -> list:
     worker's renderers.suite_command() finds them. Code and fonts only:
     nothing writable, and no user document.
     """
-    if OFFICE_ENGINE == "builtin":
+    if SETTINGS["office_engine"] == "builtin":
         return []
     try:
         return renderers.flatpak_suite_binds()

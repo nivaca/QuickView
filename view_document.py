@@ -34,15 +34,14 @@ from PySide6.QtWidgets import (
 )
 
 from common import (
-    BOOK_THEME,
     cache_key,
     cache_read,
     cache_read_head,
     cache_remove,
     cache_write,
     log,
-    PDF_MAX_PAGES,
     png_size,
+    SETTINGS,
     TOC_WIDTH,
 )
 from sandbox import (
@@ -187,8 +186,8 @@ class DocumentViewMixin:
         )
         self._size_page_view()
         pages = f"{total} pages"
-        if total > PDF_MAX_PAGES:
-            pages += f" (showing first {PDF_MAX_PAGES})"
+        if total > SETTINGS["pdf_max_pages"]:
+            pages += f" (showing first {SETTINGS['pdf_max_pages']})"
         self.set_title(f"{os.path.basename(path)}  —  {pages}")
         return lay
 
@@ -217,7 +216,7 @@ class DocumentViewMixin:
             return
 
         def page_key(i: int) -> str:
-            return cache_key(path, st, page_w, 0, f"md-{BOOK_THEME}{i}@{scale:g}")
+            return cache_key(path, st, page_w, 0, f"md-{SETTINGS['book_theme']}{i}@{scale:g}")
 
         toc_key = cache_key(path, st, page_w, 0, "toc2")
         cached_toc = cache_read(toc_key)
@@ -236,7 +235,7 @@ class DocumentViewMixin:
                 total = int(img0.text("QuickView:PageCount"))
             except ValueError:
                 pass
-        extra = {"name": os.path.basename(path), "theme": BOOK_THEME}
+        extra = {"name": os.path.basename(path), "theme": SETTINGS["book_theme"]}
         # Pages and headings are produced together, so a cache holding one
         # without the other is half a preview: re-render instead. The
         # contents entry is written even when a document has no headings at
@@ -270,7 +269,7 @@ class DocumentViewMixin:
             return
 
         def page_key(i: int) -> str:
-            return cache_key(path, st, page_w, 0, f"epub-{BOOK_THEME}{i}@{scale:g}")
+            return cache_key(path, st, page_w, 0, f"epub-{SETTINGS['book_theme']}{i}@{scale:g}")
 
         toc_key = cache_key(path, st, page_w, 0, "toc2")
         cached_toc = cache_read(toc_key)
@@ -288,7 +287,7 @@ class DocumentViewMixin:
                 total = int(img0.text("QuickView:PageCount"))
             except ValueError:
                 pass
-        extra = {"name": os.path.basename(path), "theme": BOOK_THEME}
+        extra = {"name": os.path.basename(path), "theme": SETTINGS["book_theme"]}
         # A cached book with no cached contents is a cache from before the
         # sidebar existed (or a pruned entry): re-render rather than show a
         # book with its chapters missing, since the two are produced
@@ -370,7 +369,7 @@ class DocumentViewMixin:
         got["job"] = self._toc_job = SandboxJob(
             self.pool, path,
             {"op": "pdfoutline", "page_w": page_w,
-             "max_pages": PDF_MAX_PAGES},
+             "max_pages": SETTINGS["pdf_max_pages"]},
             on_frame, on_done, self,
         )
 
@@ -645,12 +644,12 @@ class DocumentViewMixin:
             )
 
         job = {"op": self._find_op, "query": query,
-               "page_w": self._find_page_w, "max_pages": PDF_MAX_PAGES}
+               "page_w": self._find_page_w, "max_pages": SETTINGS["pdf_max_pages"]}
         if self._find_op == "epubsearch":
             # The book has to be laid out again to place a match, and a
             # different palette is a different style sheet — so the search
             # is told which one the pages on screen were rendered with.
-            job["theme"] = BOOK_THEME
+            job["theme"] = SETTINGS["book_theme"]
         self._find_job = SandboxJob(
             self.pool, self._find_path, job, on_frame, on_done, self,
         )
@@ -746,7 +745,7 @@ class DocumentViewMixin:
     ):
         # Fill cached pages one per event-loop turn: page 1 paints
         # immediately and a 50-page reopen never freezes input.
-        count = min(total, PDF_MAX_PAGES)
+        count = min(total, SETTINGS["pdf_max_pages"])
         # Sizes come from the cached PNGs' headers — 24 bytes each, no
         # decode — so the column is the right height before any page is
         # decoded. A page missing from the cache falls back to page 1's
@@ -840,7 +839,7 @@ class DocumentViewMixin:
                 # pages of one document almost always match, and any that
                 # does not is corrected as it lands. What matters is that
                 # the column is its full height before the reader scrolls.
-                count = min(total, PDF_MAX_PAGES)
+                count = min(total, SETTINGS["pdf_max_pages"])
                 log.debug("pdf first page: %s", path)
                 # A book's chapters ride on the render's header: they come
                 # out of the same layout pass that produced these pages, so
@@ -870,7 +869,7 @@ class DocumentViewMixin:
                 # Keep the pages that made it; just note the truncation.
                 log.warning("pdf render truncated: %s (%s)", path, error[:500])
 
-        job = {"op": op, "page_w": page_w, "max_pages": PDF_MAX_PAGES,
+        job = {"op": op, "page_w": page_w, "max_pages": SETTINGS["pdf_max_pages"],
                "start": start, "scale": self._page_scale}
         if extra:
             job.update(extra)

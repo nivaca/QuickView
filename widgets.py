@@ -150,12 +150,21 @@ class TitleBar(QWidget):
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(12, 8, 12, 8)
-        # Quick Look puts the close button top left, next to the traffic
-        # lights it borrows its colour from; a Plasma window decoration puts
-        # it on the right. This is the one part of the theme that is layout
-        # rather than paint, which is why it lives here and not in the
-        # stylesheet.
-        if window.theme["close_side"] == "left":
+        self.arrange()
+
+    def arrange(self):
+        """Lay the buttons out for the window's current theme.
+
+        Quick Look puts the close button top left, next to the traffic
+        lights it borrows its colour from; a Plasma window decoration puts
+        it on the right. This is the one part of the theme that is layout
+        rather than paint, which is why it lives here and not in the
+        stylesheet — and why switching themes calls this again.
+        """
+        lay = self.layout()
+        while lay.count():
+            lay.takeAt(0)  # the widgets stay; only their slots are cleared
+        if self._window.theme["close_side"] == "left":
             order = (self.close_btn, self.toc_btn, None,
                      self.mode_btn, self.open_btn)
         else:

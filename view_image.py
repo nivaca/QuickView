@@ -42,7 +42,7 @@ from common import (
     is_cache_blob,
     LAYERED_EXTENSIONS,
     log,
-    MEM_CACHE_BYTES,
+    mem_cache_bytes,
 )
 from sandbox import (
     SandboxJob,
@@ -177,7 +177,7 @@ class ImageViewMixin:
         # at most, and derived state can't drift in a process that never
         # exits.
         while (
-            sum(nb for *_, nb in self._mem_cache.values()) > MEM_CACHE_BYTES
+            sum(nb for *_, nb in self._mem_cache.values()) > mem_cache_bytes()
             and len(self._mem_cache) > 1
         ):
             self._mem_cache.popitem(last=False)

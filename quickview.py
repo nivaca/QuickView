@@ -38,7 +38,8 @@ import theme
 # renderers imports nothing at module level, so this loads no parser here.
 
 from PySide6.QtCore import (
-    Qt, QUrl, QEvent, QPoint, QSize, QTimer, QFileInfo, QMimeDatabase,
+    Qt, QUrl, QEvent, QPoint, QSize, QTimer, QFileInfo, QFileSystemWatcher,
+    QMimeDatabase,
 )
 from PySide6.QtGui import (
     QGuiApplication, QKeySequence, QRegion,
@@ -53,6 +54,7 @@ from PySide6.QtWidgets import (
 from common import (
     AI_EXTENSIONS,
     ANIM_MIMES,
+    apply_log_level,
     ARCHIVE_EXTENSIONS,
     ARCHIVE_MIMES,
     clear_cache,
@@ -67,6 +69,7 @@ from common import (
     MARKDOWN_MIMES,
     OFFICE_MIMES,
     PANEL_STYLE,
+    prune_cache,
     SETTINGS,
     setup_logging,
     SOCKET_PATH,
@@ -75,6 +78,9 @@ from common import (
     SUITE_ONLY_MIMES,
     TEXT_EXTENSIONS,
 )
+# Aliased: QuickView.reload_settings() is the window's, which applies what
+# this one reads.
+from common import reload_settings as read_settings_file
 from sandbox import (
     WorkerPool,
 )
@@ -245,6 +251,63 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             # palette anyway.
             self.setStyleSheet(PANEL_STYLE.substitute(self.theme))
         return super().event(event)
+
+    # ------------------------------------------------------------ settings
+    # The config file is re-read when it changes, so a setting takes effect
+    # on the next preview without restarting the daemon. Everything that
+    # reads SETTINGS at the point of use picks the new value up by itself;
+    # what is built once — the log level, the panel theme — is redone here.
+
+    def watch_settings(self, path: str = config.CONFIG_FILE):
+        self._settings_path = path
+        self._settings_watcher = QFileSystemWatcher(self)
+        # Editors save in bursts (truncate, write, rename), and a reload
+        # halfway through would read a half-written file: wait for quiet.
+        self._settings_quiet = QTimer(self)
+        self._settings_quiet.setSingleShot(True)
+        self._settings_quiet.setInterval(250)
+        self._settings_quiet.timeout.connect(self.reload_settings)
+        self._settings_watcher.fileChanged.connect(self._settings_quiet.start)
+        # The directory as well: an editor that saves by renaming a new
+        # file into place leaves a file watch on the old, unlinked one, and
+        # a file created after startup has nothing to watch yet.
+        self._settings_watcher.directoryChanged.connect(
+            self._settings_quiet.start)
+        # Read once more now that the watch is in place: SETTINGS was loaded
+        # at import, and an edit saved while the daemon was still starting
+        # up would otherwise wait for the next save to be noticed.
+        self.reload_settings()
+
+    def _rewatch_settings(self):
+        watcher, path = self._settings_watcher, self._settings_path
+        folder = os.path.dirname(path)
+        if os.path.isdir(folder) and folder not in watcher.directories():
+            watcher.addPath(folder)
+        if os.path.isfile(path) and path not in watcher.files():
+            watcher.addPath(path)
+
+    def reload_settings(self) -> set:
+        """Apply the config file as it is now; the names that changed."""
+        self._rewatch_settings()
+        changed = read_settings_file(self._settings_path)
+        if not changed:
+            return changed
+        log.info("settings reloaded: %s", ", ".join(sorted(changed)))
+        if "log_level" in changed:
+            apply_log_level()
+        if "panel_theme" in changed:
+            self.apply_panel_theme(SETTINGS["panel_theme"])
+        if "disk_cache_mb" in changed:
+            prune_cache()  # a smaller cap applies now, not after more writes
+        return changed
+
+    def apply_panel_theme(self, name: str):
+        """Switch the panel's theme in place. Content already on screen
+        keeps the colours it was built with, as on a palette change."""
+        self.theme_name = name
+        self.theme = theme.load(name, QApplication.palette())
+        self.titlebar.arrange()
+        self.setStyleSheet(PANEL_STYLE.substitute(self.theme))
 
     # ---------------------------------------------------------------- helpers
 
@@ -705,6 +768,7 @@ def main():
         return 1
 
     viewer = QuickView()
+    viewer.watch_settings()
 
     def on_connection():
         conn = server.nextPendingConnection()

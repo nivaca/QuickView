@@ -467,12 +467,12 @@ in `crash.log`.
 ## Settings
 
 `~/.config/quickview/quickview.conf`, written with the defaults commented in
-the first time the daemon starts. Editing it takes effect on the next
-restart:
-
-```bash
-systemctl --user restart quickview.service
-```
+the first time the daemon starts. The daemon watches the file, so a saved
+edit applies from the next preview on — no restart. The panel theme and the
+log level change at once, even with a preview open; a preview already on
+screen keeps the settings it was made with. Settings given as environment
+variables (`QUICKVIEW_*`) still win over the file, and are read only when
+the daemon starts.
 
 | Setting | Default | What it does |
 |---------|---------|--------------|

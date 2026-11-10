@@ -30,13 +30,13 @@ from PySide6.QtWidgets import (
 )
 
 from common import (
-    CODE_STYLE,
     human_size,
     log,
     MARKDOWN_EXTENSIONS,
     MARKDOWN_MIMES,
     OFFICE_MIMES,
-    TEXT_PREVIEW_LIMIT,
+    SETTINGS,
+    text_limit,
 )
 from sandbox import (
     FileReader,
@@ -100,7 +100,7 @@ class TextViewMixin:
             self.pool, path,
             {
                 "op": "text", "name": os.path.basename(path),
-                "limit": TEXT_PREVIEW_LIMIT, "style": CODE_STYLE,
+                "limit": text_limit(), "style": SETTINGS["code_style"],
             },
             on_frame, on_done, self,
         )
@@ -118,8 +118,8 @@ class TextViewMixin:
                 self._clear_widgets()
                 self.show_message(error)
                 return
-            truncated = len(data) > TEXT_PREVIEW_LIMIT
-            text = data[:TEXT_PREVIEW_LIMIT].decode("utf-8", errors="replace")
+            truncated = len(data) > text_limit()
+            text = data[:text_limit()].decode("utf-8", errors="replace")
             if truncated:
                 text += "\n\n[... truncated ...]"
             self._clear_widgets()
@@ -128,7 +128,7 @@ class TextViewMixin:
         # Every in-flight reader is held, not just the newest: previewing a
         # second file while the first is still blocked on a stalled mount
         # used to drop the only reference to a running reader.
-        reader = FileReader(path, TEXT_PREVIEW_LIMIT + 1)
+        reader = FileReader(path, text_limit() + 1)
         reader.done.connect(show)
         reader.done.connect(lambda *_: self._text_readers.discard(reader))
         self._text_readers.add(reader)

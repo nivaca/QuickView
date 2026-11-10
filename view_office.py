@@ -43,10 +43,10 @@ from common import (
     cache_write,
     LEGACY_SPREADSHEET_MIMES,
     log,
-    OFFICE_ENGINE,
     OFFICE_MIMES,
+    SETTINGS,
     SUITE_ONLY_MIMES,
-    TEXT_PREVIEW_LIMIT,
+    text_limit,
 )
 from sandbox import (
     SandboxJob,
@@ -73,7 +73,7 @@ class OfficeViewMixin:
     @staticmethod
     def office_suite_in_use() -> bool:
         """Whether office documents go to LibreOffice: installed, not refused."""
-        return OFFICE_ENGINE != "builtin" and bool(office_suite())
+        return SETTINGS["office_engine"] != "builtin" and bool(office_suite())
 
     def show_office(self, path: str, mime: str):
         # Laid out as pages, cached page by page, and shown by the same code
@@ -117,8 +117,8 @@ class OfficeViewMixin:
                 total = int(img0.text("QuickView:PageCount"))
             except ValueError:
                 pass
-        extra = {"name": os.path.basename(path), "limit": TEXT_PREVIEW_LIMIT,
-                 "engine": OFFICE_ENGINE}
+        extra = {"name": os.path.basename(path), "limit": text_limit(),
+                 "engine": SETTINGS["office_engine"]}
         if total > 0:
             log.debug("disk cache hit (office): %s", path)
             self._pdf_show_cached(
@@ -271,7 +271,7 @@ class OfficeViewMixin:
         state["job"] = self._render_job = SandboxJob(
             self.pool, path,
             {"op": "sheets", "name": os.path.basename(path),
-             "engine": OFFICE_ENGINE},
+             "engine": SETTINGS["office_engine"]},
             on_frame, on_done, self,
         )
 

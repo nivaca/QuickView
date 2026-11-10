@@ -409,14 +409,16 @@ class Routing(unittest.TestCase):
         path = os.path.join(self.tmp.name, name)
         with open(path, "wb") as fh:
             fh.write(data)
-        saved = (self.qv.office_suite, self.qv.OFFICE_ENGINE)
+        from common import SETTINGS
+
+        saved = (self.qv.office_suite, SETTINGS["office_engine"])
         self.qv.office_suite = lambda: "/usr/bin/soffice" if suite else ""
-        self.qv.OFFICE_ENGINE = engine
+        SETTINGS["office_engine"] = engine
         try:
             self.chosen.clear()
             self.window.show_file(path)
         finally:
-            self.qv.office_suite, self.qv.OFFICE_ENGINE = saved
+            self.qv.office_suite, SETTINGS["office_engine"] = saved
         return self.chosen[-1]
 
     def deck(self):
