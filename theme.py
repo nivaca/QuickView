@@ -21,7 +21,7 @@ QPalette, which under Plasma is the user's own scheme, so it follows a
 light theme, a dark one and an accent colour without being told.
 
 Both themes are the same set of tokens, so there is one stylesheet in
-quickview.py rather than two to keep in step. The quicklook values below
+common.py rather than two to keep in step. The quicklook values below
 are the literals that were previously written into those stylesheets, which
 is what makes the default look byte-identical to what it replaced.
 

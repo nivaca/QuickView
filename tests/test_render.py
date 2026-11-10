@@ -21,7 +21,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
-import quickview  # noqa: E402
+import common  # noqa: E402
 import renderers  # noqa: E402
 
 
@@ -43,7 +43,7 @@ class RawFrameGuard(unittest.TestCase):
         self.raw, self.geom = renderers.raw_frame(self.img)
 
     def rebuilt(self, data=None, **override):
-        return quickview.image_from_raw(
+        return common.image_from_raw(
             self.raw if data is None else data, {**self.geom, **override}
         )
 
@@ -74,21 +74,21 @@ class RawFrameGuard(unittest.TestCase):
 
     def test_garbage_and_missing_fields_are_rejected(self):
         self.assertTrue(self.rebuilt(stride="abc").isNull())
-        self.assertTrue(quickview.image_from_raw(self.raw, {}).isNull())
-        self.assertTrue(quickview.image_from_raw(b"", self.geom).isNull())
+        self.assertTrue(common.image_from_raw(self.raw, {}).isNull())
+        self.assertTrue(common.image_from_raw(b"", self.geom).isNull())
 
 
 class CacheEncoding(unittest.TestCase):
     def test_an_opaque_image_is_cached_as_jpeg(self):
         blob = renderers.encode_cached(solid(64, 64, QColor(200, 40, 40)))
-        self.assertTrue(quickview.is_cache_blob(blob))
-        self.assertEqual(blob[:3], quickview.JPEG_MAGIC)
+        self.assertTrue(common.is_cache_blob(blob))
+        self.assertEqual(blob[:3], common.JPEG_MAGIC)
 
     def test_alpha_forces_png(self):
         # JPEG has no alpha: a transparent logo would come back on black.
         img = solid(64, 64, QColor(255, 0, 0, 0))
         blob = renderers.encode_cached(img)
-        self.assertEqual(blob[:4], quickview.PNG_MAGIC)
+        self.assertEqual(blob[:4], common.PNG_MAGIC)
         back = QImage()
         back.loadFromData(blob)
         self.assertEqual(back.pixelColor(10, 10).alpha(), 0)
@@ -103,8 +103,8 @@ class CacheEncoding(unittest.TestCase):
             self.assertEqual(back.text("QuickView:OrigSize"), "4000×3000")
 
     def test_junk_is_not_mistaken_for_a_cache_entry(self):
-        self.assertFalse(quickview.is_cache_blob(b"garbage"))
-        self.assertFalse(quickview.is_cache_blob(b""))
+        self.assertFalse(common.is_cache_blob(b"garbage"))
+        self.assertFalse(common.is_cache_blob(b""))
 
 
 class CacheKey(unittest.TestCase):
@@ -112,19 +112,19 @@ class CacheKey(unittest.TestCase):
         # Without it, changing a renderer leaves the old output served for
         # ever, because nothing else in the key describes how it was made.
         st = os.stat(__file__)
-        first = quickview.cache_key(__file__, st, 100, 100)
-        original = quickview.CACHE_VERSION
-        quickview.CACHE_VERSION = original + 1
+        first = common.cache_key(__file__, st, 100, 100)
+        original = common.CACHE_VERSION
+        common.CACHE_VERSION = original + 1
         try:
-            self.assertNotEqual(quickview.cache_key(__file__, st, 100, 100), first)
+            self.assertNotEqual(common.cache_key(__file__, st, 100, 100), first)
         finally:
-            quickview.CACHE_VERSION = original
+            common.CACHE_VERSION = original
 
     def test_the_fit_box_is_part_of_the_key(self):
         st = os.stat(__file__)
         self.assertNotEqual(
-            quickview.cache_key(__file__, st, 100, 100),
-            quickview.cache_key(__file__, st, 200, 100),
+            common.cache_key(__file__, st, 100, 100),
+            common.cache_key(__file__, st, 200, 100),
         )
 
 

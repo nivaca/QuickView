@@ -11,7 +11,7 @@
 """User settings, read from ~/.config/quickview/quickview.conf.
 
 Deliberately small. Everything here is a *preference* — something a person
-might reasonably want different. The many other constants in quickview.py
+might reasonably want different. The many other constants in common.py
 are safety bounds on untrusted input (frame sizes, frame counts, timeouts);
 exposing those would turn a config file into a way to defeat the sandbox's
 limits, so they stay in the code.

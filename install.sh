@@ -59,7 +59,7 @@ if [ ! -x "$PY" ]; then
     # inside. Where the system has them, this turns a ~650 MB private copy
     # into a ~20 KB stub, and the Qt libraries end up shared with Plasma's
     # own processes instead of being a second, private mapping of the same
-    # code. The jail can reach them: sandbox_flags() in quickview.py binds
+    # code. The jail can reach them: sandbox_flags() in sandbox.py binds
     # /usr read-only, which covers system site-packages. It does *not* cover
     # ~/.local/lib, which this flag also exposes — hence the location test
     # in reachable_in_jail() below, since importing here proves nothing

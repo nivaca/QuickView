@@ -387,8 +387,11 @@ class Routing(unittest.TestCase):
 
     def setUp(self):
         import quickview
+        import view_office
 
-        self.qv = quickview
+        # The routing reads these from the module that defines
+        # office_suite_in_use(), so that is where they are swapped.
+        self.qv = view_office
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.window = quickview.QuickView()
@@ -447,9 +450,9 @@ class WorkbookPayload(unittest.TestCase):
     workbook comes from a directory anything running as the user can write."""
 
     def setUp(self):
-        import quickview
+        import view_office
 
-        self.valid = quickview.valid_workbook
+        self.valid = view_office.valid_workbook
 
     def book(self, **sheet):
         base = {"name": "S", "rows": [["a", "1"]], "cols": 2, "align": ["l", "r"],

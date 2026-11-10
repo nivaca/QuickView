@@ -29,6 +29,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
 import config  # noqa: E402
+import common  # noqa: E402
 import quickview  # noqa: E402
 import theme  # noqa: E402
 
@@ -74,7 +75,7 @@ class Palettes(unittest.TestCase):
 class Stylesheets(unittest.TestCase):
     def test_every_stylesheet_fills_from_every_theme(self):
         sheets = {
-            "PANEL_STYLE": quickview.PANEL_STYLE,
+            "PANEL_STYLE": common.PANEL_STYLE,
             "TOC_STYLE": quickview.QuickView.TOC_STYLE,
             "SHEET_STYLE": quickview.QuickView.SHEET_STYLE,
         }

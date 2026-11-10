@@ -28,6 +28,9 @@ from PySide6.QtWidgets import QApplication, QLabel, QPushButton  # noqa: E402
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
 import quickview  # noqa: E402
+import view_media  # noqa: E402
+import widgets  # noqa: E402
+from common import MEDIA_BUTTON_H, PLAYBACK_RATES  # noqa: E402
 
 
 class FakePlayer:
@@ -50,15 +53,15 @@ class MediaControls(unittest.TestCase):
     def setUp(self):
         self.window = quickview.QuickView()
         self.addCleanup(self.window.deleteLater)
-        real = quickview.MediaSession
-        quickview.MediaSession = FakePlayer
+        real = view_media.MediaSession
+        view_media.MediaSession = FakePlayer
         try:
             self.window.show_media("/does/not/exist.mp4", video=True)
         finally:
-            quickview.MediaSession = real
+            view_media.MediaSession = real
         self.player = self.window.media
         self.buttons = {b.text(): b for b in self.window.findChildren(QPushButton)}
-        self.slider = self.window.findChild(quickview.SeekSlider)
+        self.slider = self.window.findChild(widgets.SeekSlider)
 
     def last(self, kind: str):
         for msg in reversed(self.player.sent):
@@ -157,7 +160,7 @@ class SpeedMenu(MediaControls):
 
     def test_the_button_fits_the_widest_label_it_can_show(self):
         button = self.buttons["1×"]
-        for rate in quickview.PLAYBACK_RATES:
+        for rate in PLAYBACK_RATES:
             button.setText(f"{rate:g}×")
             self.assertLessEqual(
                 button.sizeHint().width(), button.width(),
@@ -187,7 +190,7 @@ class ControlRow(MediaControls):
         # Left to themselves these came out 29, 25 and 20 px tall, because a
         # pause bar, a text label and an emoji have different metrics.
         heights = {self.buttons[t].height() for t in ("⏸", "1×", "🔊")}
-        self.assertEqual(heights, {quickview.MEDIA_BUTTON_H})
+        self.assertEqual(heights, {MEDIA_BUTTON_H})
 
 
 if __name__ == "__main__":

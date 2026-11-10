@@ -30,7 +30,7 @@ from PySide6.QtWidgets import QApplication
 
 app = QApplication.instance() or QApplication([])
 
-import quickview
+import sandbox
 
 
 class _FakeWorker:
@@ -61,7 +61,7 @@ class EarlyFailure(unittest.TestCase):
             done.append((ok, error))
             loop.quit()
 
-        quickview.SandboxJob(
+        sandbox.SandboxJob(
             pool, "/nonexistent/quickview-test.pdf", {"op": "image"},
             lambda payload: None, on_done,
         )
