@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # QuickView — a Quick Look style file previewer for KDE Plasma.
 # Copyright (C) 2026 Mustapha Alioglou
+# Copyright (C) 2026 Nicolas Vaughan <nivaca@fastmail.com>
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -42,8 +43,10 @@ from common import (
     log,
     MAX_FRAME_BYTES,
     MEDIA_SLOTS,
+    OFFICE_ENGINE,
     WORKER_HELPER,
 )
+import renderers
 
 
 # ---------------------------------------------------------------- sandbox
@@ -145,6 +148,25 @@ JOB_TIMEOUT_MS = 20000
 MEDIA_HELPER = os.path.join(APP_DIR, "media_worker.py")
 
 
+def _office_suite_binds() -> list:
+    """A Flatpak LibreOffice, read-only, for the render workers alone.
+
+    A distro LibreOffice is under /usr and needs nothing. A Flatpak one
+    lives in the user's (or the system's) flatpak directory, so its app
+    and runtime trees — and the user's own fonts, which documents are
+    written in — are bound under renderers.FLATPAK_SUITE_ROOT, where the
+    worker's renderers.suite_command() finds them. Code and fonts only:
+    nothing writable, and no user document.
+    """
+    if OFFICE_ENGINE == "builtin":
+        return []
+    try:
+        return renderers.flatpak_suite_binds()
+    except OSError as exc:
+        log.warning("Flatpak LibreOffice not bound into the jail: %s", exc)
+        return []
+
+
 def build_worker_command(fd: int) -> list | None:
     """bwrap command for a warm worker, or None when we must refuse.
 
@@ -154,7 +176,7 @@ def build_worker_command(fd: int) -> list | None:
     helper = [sys.executable, WORKER_HELPER, str(fd)]
     bwrap = find_bwrap()
     if bwrap:
-        return sandbox_flags(bwrap) + ["--"] + helper
+        return sandbox_flags(bwrap) + _office_suite_binds() + ["--"] + helper
     if os.environ.get("QUICKVIEW_ALLOW_UNSANDBOXED") == "1":
         return helper
     global _warned_no_bwrap

@@ -1,5 +1,6 @@
 # QuickView — a Quick Look style file previewer for KDE Plasma.
 # Copyright (C) 2026 Mustapha Alioglou
+# Copyright (C) 2026 Nicolas Vaughan <nivaca@fastmail.com>
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -479,6 +480,150 @@ class WorkbookPayload(unittest.TestCase):
                 self.assertFalse(self.valid(book))
 
 
+class FlatpakSuite(unittest.TestCase):
+    """A Flathub LibreOffice, found on disk and run in a jail of its own.
+
+    Against a fake installation tree, so this runs with no Flatpak at all:
+    a per-user app on a system-wide runtime, fonts kept as symlinks into a
+    collection elsewhere — the layout that has to work on a real machine.
+    """
+
+    APP = "org.libreoffice.LibreOffice"
+    REF = "org.freedesktop.Platform/x86_64/25.08"
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        d = self.tmp.name
+        self.user, self.system = os.path.join(d, "user"), os.path.join(d, "system")
+        self.files = self.app_tree(self.user, "[Application]\nruntime=%s\n" % self.REF)
+        self.runtime = os.path.join(self.system, "runtime", self.REF, "active", "files")
+        os.makedirs(os.path.join(self.runtime, "lib"))
+        os.makedirs(os.path.join(self.runtime, "etc"))
+        # A font kept elsewhere and linked in, as a dangling link might be.
+        self.collection = os.path.join(d, "collection", "Junicode")
+        os.makedirs(self.collection)
+        fonts = os.path.join(d, "data", "fonts")
+        os.makedirs(fonts)
+        os.symlink(self.collection, os.path.join(fonts, "Junicode"))
+        os.symlink(os.path.join(d, "gone"), os.path.join(fonts, "Dangling"))
+        saved = (renderers.OFFICE_SUITES, renderers._flatpak_installations,
+                 renderers.FLATPAK_SUITE_ROOT, os.environ.get("XDG_DATA_HOME"))
+        renderers.OFFICE_SUITES = ("/nonexistent/soffice", "flatpak:" + self.APP)
+        renderers._flatpak_installations = lambda: (self.user, self.system)
+        renderers.FLATPAK_SUITE_ROOT = os.path.join(d, "no-jail-here")
+        os.environ["XDG_DATA_HOME"] = os.path.join(d, "data")
+        self.addCleanup(self.restore, saved)
+
+    @staticmethod
+    def restore(saved):
+        (renderers.OFFICE_SUITES, renderers._flatpak_installations,
+         renderers.FLATPAK_SUITE_ROOT, data) = saved
+        if data is None:
+            os.environ.pop("XDG_DATA_HOME", None)
+        else:
+            os.environ["XDG_DATA_HOME"] = data
+
+    def app_tree(self, inst, metadata, executable=True):
+        active = os.path.join(inst, "app", self.APP, "x86_64", "stable", "abc123")
+        program = os.path.join(active, "files", "libreoffice", "program")
+        os.makedirs(program)
+        with open(os.path.join(active, "metadata"), "w") as fh:
+            fh.write(metadata)
+        soffice = os.path.join(program, "soffice")
+        with open(soffice, "w") as fh:
+            fh.write("#!/bin/sh\n")
+        os.chmod(soffice, 0o755 if executable else 0o644)
+        # The two links `flatpak` keeps, which the search goes through.
+        os.symlink("x86_64/stable", os.path.join(inst, "app", self.APP, "current"))
+        os.symlink("abc123", os.path.join(active, "..", "active"))
+        return os.path.realpath(os.path.join(active, "files"))
+
+    def test_a_user_app_on_a_system_runtime_is_found(self):
+        self.assertEqual(renderers.flatpak_suite(self.APP),
+                         (self.files, os.path.realpath(self.runtime)))
+        self.assertEqual(renderers.office_suite(),
+                         os.path.join(self.files, "libreoffice", "program", "soffice"))
+
+    def test_a_distro_suite_still_comes_first(self):
+        distro = os.path.join(self.tmp.name, "soffice")
+        with open(distro, "w") as fh:
+            fh.write("#!/bin/sh\n")
+        os.chmod(distro, 0o755)
+        renderers.OFFICE_SUITES = (distro, "flatpak:" + self.APP)
+        self.assertEqual(renderers.office_suite(), distro)
+        self.assertEqual(renderers.flatpak_suite_binds(), [])  # /usr has it
+
+    def test_no_suite_without_the_runtime_it_names(self):
+        import shutil
+
+        shutil.rmtree(os.path.join(self.system, "runtime"))
+        self.assertIsNone(renderers.flatpak_suite(self.APP))
+        self.assertEqual(renderers.office_suite(), "")
+
+    def test_a_broken_install_is_passed_over(self):
+        import shutil
+
+        for metadata, executable in (("not an ini file", True),
+                                     ("[Application]\nname=x\n", True),
+                                     ("[Application]\nruntime=%s\n" % self.REF, False)):
+            with self.subTest(metadata=metadata, executable=executable):
+                shutil.rmtree(os.path.join(self.user, "app"))
+                self.app_tree(self.user, metadata, executable)
+                self.assertEqual(renderers.office_suite(), "")
+
+    def test_the_jail_gets_code_and_fonts_read_only(self):
+        root = "/run/quickview/libreoffice"
+        binds = renderers.flatpak_suite_binds(root)
+        triples = [tuple(binds[i:i + 3]) for i in range(0, len(binds), 3)]
+        self.assertTrue(all(flag == "--ro-bind" for flag, _src, _dest in triples))
+        self.assertEqual(triples[:2], [
+            ("--ro-bind", self.files, root + "/app"),
+            ("--ro-bind", os.path.realpath(self.runtime), root + "/runtime"),
+        ])
+        # The link is bound at its target; the dangling one is left out.
+        self.assertEqual(triples[2:], [
+            ("--ro-bind", os.path.realpath(self.collection), root + "/user-fonts/Junicode"),
+        ])
+
+    def test_inside_the_jail_the_bound_trees_are_used(self):
+        root = renderers.FLATPAK_SUITE_ROOT
+        os.makedirs(os.path.dirname(root), exist_ok=True)
+        os.symlink(os.path.dirname(self.files), root)  # stands in for the binds
+        os.rename(root + "/files", root + "/app")
+        os.makedirs(root + "/runtime")
+        os.makedirs(root + "/user-fonts")
+        renderers._flatpak_installations = lambda: ()  # host search must not be needed
+        soffice, flatpak = renderers._suite()
+        self.assertEqual(soffice, root + "/app/libreoffice/program/soffice")
+        self.assertEqual(flatpak, (root + "/app", root + "/runtime",
+                                   [(root + "/user-fonts", "")]))
+
+    def test_the_suite_runs_in_a_flatpak_shaped_jail(self):
+        import shutil
+
+        if not shutil.which("bwrap", path="/usr/bin:/bin"):
+            self.skipTest("bubblewrap not installed")
+        work = os.path.join(self.tmp.name, "work")
+        os.makedirs(work)
+        cmd = renderers.suite_command(work, ["--convert-to", "pdf", work + "/a.docx"])
+        args = " ".join(cmd)
+        for expected in ("--unshare-all", "--cap-drop ALL", "--clearenv",
+                         "--ro-bind %s /usr" % os.path.realpath(self.runtime),
+                         "--ro-bind %s /app" % self.files,
+                         "--bind %s %s" % (work, work),
+                         "--ro-bind %s /run/host/user-fonts/Junicode"
+                         % os.path.realpath(self.collection),
+                         "/app/libreoffice/program/soffice --headless"):
+            self.assertIn(expected, args)
+        # The one writable path is the conversion's own directory.
+        writable = [cmd[i + 1] for i, a in enumerate(cmd) if a == "--bind"]
+        self.assertEqual(writable, [work])
+        # Flatpak's desktop integration makes soffice exit 1 out here.
+        self.assertNotIn("LIBO_FLATPAK", cmd)
+        self.assertEqual(cmd[-1], work + "/a.docx")
+
+
 @unittest.skipUnless(renderers.office_suite(), "LibreOffice not installed")
 class RealSuite(unittest.TestCase):
     def test_a_docx_converts_to_real_pages(self):
@@ -547,10 +692,12 @@ class RealSuiteFormats(unittest.TestCase):
         for target, source in (("pptx", "deck.fodp"), ("odp", "deck.fodp"),
                                ("ppt", "deck.fodp"), ("doc", "memo.txt"),
                                ("xls", "sheet.csv")):
+            # suite_command, not office_suite(): a Flatpak suite only runs
+            # inside the jail it builds around it.
             subprocess.run(
-                [renderers.office_suite(), "--headless", "--norestore",
-                 "-env:UserInstallation=file://%s/profile" % d,
-                 "--convert-to", target, "--outdir", d, os.path.join(d, source)],
+                renderers.suite_command(
+                    d, ["--convert-to", target, "--outdir", d,
+                        os.path.join(d, source)]),
                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
                 env={"HOME": d, "PATH": "/usr/bin:/bin",
                      "SAL_USE_VCLPLUGIN": "svp"},
