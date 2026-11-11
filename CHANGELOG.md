@@ -18,6 +18,20 @@ project has no version tags yet, so entries are dated.
   a wrong key or a failed signature stops the build. A missing `rpm-sign`
   or key is reported before building.
 
+### Fixed
+
+- **A worker job's queued error no longer outlives the job.** When a file
+  could not be opened or a worker not started, the error was reported
+  from a zero-delay timer; if the window owning the job was deleted first,
+  that timer ran anyway and failed on the deleted job ("Internal C++
+  object already deleted"). The timers are now tied to the job, so Qt
+  drops them along with it. The daemon's one window lives as long as the
+  daemon, so this showed up in the test suite rather than in use.
+- **The tests no longer litter `/tmp`.** `tests/test_config.py` made a
+  temporary folder for every test and never removed it — fifteen per run
+  of the suite. Tests driving a window with a stand-in worker also stop
+  its work before the stand-in is swapped back for the real worker.
+
 ## 0.1.1 — 2026-11-10
 
 The entry below — the package needs no logout after installing — and:

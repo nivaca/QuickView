@@ -355,7 +355,7 @@ class MediaSession(QObject):
         except OSError as exc:
             parent.close()
             child.close()
-            QTimer.singleShot(0, lambda msg=str(exc): handlers["error"](msg))
+            QTimer.singleShot(0, self, lambda msg=str(exc): handlers["error"](msg))
             return
 
         # A memfd is the frame transport: an anonymous shared buffer that
@@ -383,7 +383,7 @@ class MediaSession(QObject):
             self._mm = None
             parent.close()
             child.close()
-            QTimer.singleShot(0, lambda msg=str(exc): handlers["error"](msg))
+            QTimer.singleShot(0, self, lambda msg=str(exc): handlers["error"](msg))
             return
         finally:
             child.close()
@@ -409,7 +409,7 @@ class MediaSession(QObject):
             )
             parent.sendall(job)
         except OSError as exc:
-            QTimer.singleShot(0, lambda msg=str(exc): handlers["error"](msg))
+            QTimer.singleShot(0, self, lambda msg=str(exc): handlers["error"](msg))
         finally:
             os.close(media_fd)
             os.close(frame_fd)  # the worker and our mmap keep it alive
@@ -579,7 +579,11 @@ class SandboxJob(QObject):
         self._complete = False
         self._worker = pool.take()
         if self._worker is None:
-            QTimer.singleShot(0, lambda: self._finish(False, "sandbox refused"))
+            # Every early answer is queued, so the caller has the job before
+            # its callbacks run — and is tied to this job (the "self"): if
+            # the job goes first, with the window that owns it, Qt drops the
+            # call instead of running it on a deleted object.
+            QTimer.singleShot(0, self, lambda: self._finish(False, "sandbox refused"))
             return
 
         try:
@@ -587,7 +591,7 @@ class SandboxJob(QObject):
         except OSError as exc:
             self._worker.kill()
             self._worker = None
-            QTimer.singleShot(0, lambda msg=str(exc): self._finish(False, msg))
+            QTimer.singleShot(0, self, lambda msg=str(exc): self._finish(False, msg))
             return
 
         sock = self._worker.sock
@@ -614,7 +618,7 @@ class SandboxJob(QObject):
             )
             sock.sendall(payload)
         except OSError as exc:
-            QTimer.singleShot(0, lambda msg=str(exc): self._finish(False, msg))
+            QTimer.singleShot(0, self, lambda msg=str(exc): self._finish(False, msg))
         finally:
             os.close(fd)  # the worker holds its own copy now
 

@@ -89,6 +89,9 @@ class Upgrade(unittest.TestCase):
             fh.write(b"PK stand-in; the worker is fake")
         self.window = quickview.QuickView()
         self.addCleanup(self.window.deleteLater)
+        # Cleanups run last-first: the page stepper and any job stop before
+        # the stand-in worker is swapped back for the real one.
+        self.addCleanup(self.window.clear_content)
 
     def open(self, mime=DOCX):
         self.window.current_path = self.path

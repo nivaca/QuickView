@@ -10,6 +10,7 @@
 """Settings parsing. A bad config file must never stop the daemon."""
 
 import os
+import shutil
 import sys
 import tempfile
 import unittest
@@ -22,6 +23,7 @@ import config
 class Loading(unittest.TestCase):
     def setUp(self):
         self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
         self.path = os.path.join(self.dir, "quickview.conf")
         for _, (_s, _k, _d, env, _lo, _hi) in config._SETTINGS.items():
             os.environ.pop(env, None)  # a stray env var would mask the file
