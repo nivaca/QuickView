@@ -614,6 +614,18 @@ only enables the socket, and the launcher starts it on your first preview.
 Then bind Space in Dolphin (one-time):
 **Menu → Configure → Configure Keyboard Shortcuts… → search "Quick Look" → Custom → Space**
 
+The RPMs attached to the [GitHub releases](https://github.com/nivaca/QuickView/releases)
+are signed too, from 0.1.2 on, with Nicolas Vaughan's key
+`236E F043 AB7A 4434 A05C  A4EC B554 9099 FC0D 6464`. The public key is in
+this repository as [`packaging/RPM-GPG-KEY-quickview`](packaging/RPM-GPG-KEY-quickview)
+and attached to each release; import it once, and `dnf` checks a
+downloaded RPM like any other:
+
+```bash
+sudo rpm --import RPM-GPG-KEY-quickview
+sudo dnf install ./quickview-0.1.2-1.fc45.x86_64.rpm
+```
+
 ### Any distribution: from a checkout
 
 ```bash

@@ -5,6 +5,16 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **The release RPMs are signed.** The RPMs attached to the GitHub
+  release of 0.1.2 were re-signed with Nicolas Vaughan's key
+  (`236E F043 AB7A 4434 A05C  A4EC B554 9099 FC0D 6464`), whose public half
+  is now in the repository as `packaging/RPM-GPG-KEY-quickview` and
+  attached to the release. Copr's packages were already signed by Copr.
+
 ## 0.1.2 — 2026-11-11
 
 ### Added
