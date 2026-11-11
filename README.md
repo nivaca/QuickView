@@ -493,6 +493,10 @@ in Dolphin, with the **⚙** button in the panel, or with:
 quickview --settings
 ```
 
+<p align="center">
+  <img src="docs/screenshots/settings.png" width="60%" alt="The settings window on its Fonts tab, under Plasma's Breeze Dark colour scheme">
+</p>
+
 It is a window of its own, so it works whether or not the daemon is
 running, and it only writes the settings file — which keeps your comments,
 since it changes values in place. Fonts can be any installed family; a
@@ -637,6 +641,7 @@ Then bind Space in Dolphin (one-time):
 - `bin/quickview` — launcher: compiled fast path, then `client.py`, then a
   full launch as fallback
 - `settings_dialog.py` — the settings window (`quickview --settings`)
+- `tools/screenshots.py` — takes the README's screenshots, offscreen
 - `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look" and
   "QuickView Settings")
 - `quickview-settings.desktop` — the settings window's application-menu
@@ -818,5 +823,14 @@ GPL-3.0-or-later. See [LICENSE](LICENSE). The original is
 copyright © 2026 Mustapha Alioglou; the changes in this fork are
 copyright © 2026 Nicolas Vaughan, under the same license.
 
-The screenshots show KDE's default *Next* wallpaper and Ghostscript's
-manual, both from the system's own packages.
+The screenshots show KDE's default *Next* wallpaper and the manual of hwloc,
+both from the system's own packages, and are taken by `tools/screenshots.py`:
+
+```bash
+.venv/bin/python tools/screenshots.py              # all of them, into docs/screenshots/
+.venv/bin/python tools/screenshots.py --only code  # just one
+```
+
+It runs QuickView on Qt's offscreen platform, with settings and cache of its
+own, so nothing appears on screen and your settings are untouched; see its
+`--help`.

@@ -5,6 +5,31 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 2026-11-10 — screenshots by script
+
+### Added
+
+- **`tools/screenshots.py` takes the README's screenshots.** The panel
+  previewing a PDF, an image and a source file, the breeze theme with a
+  PDF's contents open, and — new — the settings window, written to
+  `docs/screenshots/` at twice the screen's size by default (`--scale`).
+  QuickView runs in the script's own process on Qt's offscreen platform,
+  with a virtual 1920×1200 screen, so nothing appears on screen and no
+  display is needed; settings, cache and logs are temporary, so the
+  user's are untouched; and files go through the real jailed workers, so
+  the shots show what QuickView renders. The samples come from system
+  packages — Ghostscript's manual if installed, else hwloc's (opened on
+  its first chapter), and KDE's Next wallpaper — and `--pdf`, `--page` and
+  `--image` name others. The breeze shot and the settings window take
+  their colours from Plasma's Breeze Dark scheme file (`--scheme light`
+  for Breeze Light), not from the desktop's current scheme.
+
+### Changed
+
+- **The screenshots are retaken** with it: current code, the ⚙ button,
+  sharp at 2×, plus one of the settings window in the README's Settings
+  section.
+
 ## 2026-11-10 — a settings window, and fonts
 
 ### Added
