@@ -21,6 +21,10 @@ just like Quick Look on a multi-file selection.
 > **Flathub LibreOffice**, fixes a bug that could leave the panel hanging,
 > splits the daemon into smaller modules and hardens the installer. See
 > [Authors and contributions](#authors-and-contributions) for the details.
+>
+> On Fedora, install it from Copr:
+> `sudo dnf copr enable nivaca/quickview && sudo dnf install quickview`
+> (see [Install](#install)).
 
 [fork]: https://github.com/nivaca/QuickView
 [upstream]: https://github.com/MustaphaAlioglou/QuickView
@@ -88,9 +92,10 @@ just like Quick Look on a multi-file selection.
 - **Configurable** through `~/.config/quickview/quickview.conf`, written with
   its defaults commented in on first run — including a **Breeze theme** that
   drops the Quick Look look and follows your Plasma colour scheme instead.
-- **Self-contained.** `install.sh` builds a virtualenv and touches no system
-  packages. **Enter** opens the file in its real application whenever the
-  preview is not enough.
+- **Easy to install.** On Fedora it is a signed package from Copr that
+  `dnf` keeps up to date; elsewhere `install.sh` builds a virtualenv and
+  touches no system packages. **Enter** opens the file in its real
+  application whenever the preview is not enough.
 
 ## What it previews
 
@@ -541,6 +546,9 @@ sizes, frame counts, worker timeouts — and is deliberately not configurable.
 
 ## Requirements
 
+On Fedora, the [Copr package](#fedora-from-copr-recommended) brings in all
+of this by itself; the list below is for `install.sh`.
+
 - **KDE Plasma** with Dolphin (Wayland or X11). Nothing else in the desktop
   is assumed — the Space binding is a Dolphin service menu.
 - **bubblewrap** (`bwrap`) — mandatory, not optional: every parser runs
@@ -581,6 +589,33 @@ sizes, frame counts, worker timeouts — and is deliberately not configurable.
 
 ## Install
 
+### Fedora: from Copr (recommended)
+
+```bash
+sudo dnf copr enable nivaca/quickview
+sudo dnf install quickview
+```
+
+The packages are built by [Copr](https://copr.fedorainfracloud.org/coprs/nivaca/quickview/)
+for Fedora 45 and Rawhide (x86_64) and signed by it: `dnf` checks every
+one, and asks you once to accept the project's key. Updates arrive with
+`sudo dnf upgrade` like any other package, and `sudo dnf remove quickview`
+removes it (your settings in `~/.config/quickview/` stay).
+
+The package runs on the system's Python, PySide6 and Pygments, with no
+virtualenv. It puts the code in `/usr/share/quickview/` (compiled ahead,
+since the jail sees it read-only), the launcher in `/usr/bin/quickview`,
+the systemd units in `/usr/lib/systemd/user/` — enabled for every user by a
+preset, so `quickview.socket` starts the daemon on the first preview — and
+the settings window and Dolphin menu where Plasma finds them. There is no
+need to log out: the installer runs as root, outside your session, so it
+only enables the socket, and the launcher starts it on your first preview.
+
+Then bind Space in Dolphin (one-time):
+**Menu → Configure → Configure Keyboard Shortcuts… → search "Quick Look" → Custom → Space**
+
+### Any distribution: from a checkout
+
 ```bash
 git clone https://github.com/nivaca/QuickView.git
 cd QuickView
@@ -597,17 +632,18 @@ the virtualenv too); the checkout itself is never touched.
 (a few hundred MB on first run), compiles the fast-path client if `rustc` is
 present, registers the Dolphin service menu, puts a `quickview` launcher on
 your `PATH`, and enables `quickview.socket`, which starts the daemon on the
-first preview (see [The daemon](#the-daemon)).
+first preview (see [The daemon](#the-daemon)). Then bind Space as above.
 
-Then bind Space in Dolphin (one-time):
-**Menu → Configure → Configure Keyboard Shortcuts… → search "Quick Look" → Custom → Space**
+Use one way or the other on a machine, not both: `install.sh`'s files in
+your home directory win over the package's — its units in
+`~/.config/systemd/user/` over the system ones, and its
+`~/.local/bin/quickview` over `/usr/bin/quickview` — so run
+`./uninstall.sh` before installing the package.
 
-### As an RPM package (Fedora)
+### Building the RPM yourself
 
-`install.sh` runs QuickView from the checkout, with a virtualenv of its
-own. On Fedora it can instead be built into an RPM that runs on the
-system's Python, PySide6 and Pygments, with no virtualenv, and installs and
-updates like any other package:
+The same package Copr builds can be built from a checkout, for a Fedora
+release Copr does not cover, or to try a change as a package:
 
 ```bash
 sudo dnf install rpm-build python3-devel rust systemd-rpm-macros desktop-file-utils
@@ -616,22 +652,10 @@ sudo dnf install build/rpm/RPMS/x86_64/quickview-*.rpm
 ```
 
 The build lands in `build/rpm/`, from the files in the checkout as they
-are, committed or not. The package puts the code in `/usr/share/quickview/`
-(compiled ahead, since the jail sees it read-only), the launcher in
-`/usr/bin/quickview`, the systemd units in `/usr/lib/systemd/user/` —
-enabled for every user by a preset, so `quickview.socket` starts the
-daemon on the first preview — and the settings window and Dolphin menu
-where Plasma finds them. Then bind Space as above; there is no need to log
-out first. The installer runs as root, outside your session, so it only
-enables the socket, which would otherwise start at your next login; the
-launcher notices on the first preview that it is enabled but not yet
-listening and starts it then, so even that first preview is served by the
-socket-started daemon.
-
-To sign the packages, so `dnf` can check where they came from instead of
-warning that it skipped the check, build with `--sign` (your default GPG
-key) or `--sign=KEY` (a key ID, email or fingerprint). This needs
-`rpm-sign`:
+are, committed or not. Packages you build are not signed, so `dnf` warns
+that it skipped the OpenPGP check. To sign them, build with `--sign` (your
+default GPG key) or `--sign=KEY` (a key ID, email or fingerprint), which
+needs `rpm-sign`:
 
 ```bash
 sudo dnf install rpm-sign
@@ -641,12 +665,6 @@ packaging/build-rpm.sh --sign
 The script verifies each signed package against the exported public key,
 `build/rpm/RPM-GPG-KEY-quickview`, which is what others import once
 before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
-
-Use one way or the other on a machine, not both: `install.sh`'s files in
-your home directory win over the package's — its units in
-`~/.config/systemd/user/` over the system ones, and its
-`~/.local/bin/quickview` over `/usr/bin/quickview` — so run
-`./uninstall.sh` before installing the package.
 
 ## How it works
 

@@ -9,6 +9,12 @@ project has no version tags yet, so entries are dated.
 
 ### Added
 
+- **QuickView is on Copr.** On Fedora 45 and Rawhide,
+  `sudo dnf copr enable nivaca/quickview && sudo dnf install quickview`
+  installs it as a package Copr builds and signs, and `dnf upgrade` keeps
+  it current. The README's Install section now leads with it, ahead of
+  `install.sh` for other distributions and of building the RPM yourself.
+
 - **`packaging/build-rpm.sh --sign`** signs both RPMs with OpenPGP, so
   `dnf` can check where they came from rather than warn that it skipped
   the check. `--sign` uses the default GPG key, `--sign=KEY` names one;
