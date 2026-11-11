@@ -602,6 +602,34 @@ first preview (see [The daemon](#the-daemon)).
 Then bind Space in Dolphin (one-time):
 **Menu → Configure → Configure Keyboard Shortcuts… → search "Quick Look" → Custom → Space**
 
+### As an RPM package (Fedora)
+
+`install.sh` runs QuickView from the checkout, with a virtualenv of its
+own. On Fedora it can instead be built into an RPM that runs on the
+system's Python, PySide6 and Pygments, with no virtualenv, and installs and
+updates like any other package:
+
+```bash
+sudo dnf install rpm-build python3-devel rust systemd-rpm-macros desktop-file-utils
+packaging/build-rpm.sh
+sudo dnf install build/rpm/RPMS/x86_64/quickview-*.rpm
+```
+
+The build lands in `build/rpm/`, from the files in the checkout as they
+are, committed or not. The package puts the code in `/usr/share/quickview/`
+(compiled ahead, since the jail sees it read-only), the launcher in
+`/usr/bin/quickview`, the systemd units in `/usr/lib/systemd/user/` —
+enabled for every user by a preset, so `quickview.socket` starts the
+daemon on the first preview — and the settings window and Dolphin menu
+where Plasma finds them. Log out and back in once (or run
+`systemctl --user start quickview.socket`), then bind Space as above.
+
+Use one way or the other on a machine, not both: `install.sh`'s files in
+your home directory win over the package's — its units in
+`~/.config/systemd/user/` over the system ones, and its
+`~/.local/bin/quickview` over `/usr/bin/quickview` — so run
+`./uninstall.sh` before installing the package.
+
 ## How it works
 
 - `quickview.py` — the PySide6 app; runs as a daemon (`quickview.service`,
@@ -642,6 +670,8 @@ Then bind Space in Dolphin (one-time):
   full launch as fallback
 - `settings_dialog.py` — the settings window (`quickview --settings`)
 - `tools/screenshots.py` — takes the README's screenshots, offscreen
+- `packaging/` — the RPM: `quickview.spec`, `build-rpm.sh`, and the
+  systemd units and launcher that both the package and `install.sh` use
 - `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look" and
   "QuickView Settings")
 - `quickview-settings.desktop` — the settings window's application-menu

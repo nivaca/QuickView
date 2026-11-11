@@ -1,0 +1,3 @@
+# Enable QuickView's socket for every user: it starts the previewer on the
+# first Space press. The daemon itself is started by the socket, not here.
+enable quickview.socket

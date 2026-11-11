@@ -1,0 +1,14 @@
+# Started by quickview.socket, so no [Install] section. PartOf so it goes
+# with the session: the next login's panel needs the next session's display.
+# @QUICKVIEW@ is the launcher: the checkout's bin/quickview under install.sh,
+# /usr/bin/quickview in the package.
+[Unit]
+Description=QuickView previewer (started by quickview.socket)
+Requires=quickview.socket
+After=quickview.socket graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart="@QUICKVIEW@" --daemon
+Restart=on-failure
+RestartSec=5

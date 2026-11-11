@@ -2,6 +2,9 @@
 __pycache__/
 .ruff_cache/
 
+# packaging/build-rpm.sh output
+build/
+
 # Compiled fast-path client, built by install.sh from client.rs
 bin/quickview-client
 

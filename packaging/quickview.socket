@@ -1,0 +1,14 @@
+# Listens on QuickView's socket from login and starts quickview.service on
+# the first connection, queueing that request until the daemon reads it —
+# so the daemon can exit when idle ([daemon] daemon_mode) and never miss a
+# Space press. %t/quickview-%U is $XDG_RUNTIME_DIR/quickview-<uid>, where
+# ipc.socket_path() and both clients connect.
+[Unit]
+Description=QuickView socket (starts the previewer on first use)
+
+[Socket]
+ListenStream=%t/quickview-%U
+SocketMode=0600
+
+[Install]
+WantedBy=sockets.target

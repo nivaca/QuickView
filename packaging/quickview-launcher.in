@@ -1,0 +1,12 @@
+#!/bin/sh
+# QuickView launcher, as the package installs it.
+#
+# The compiled client hands the paths to the daemon — or to systemd's
+# socket, which starts it — in well under a millisecond. It exits non-zero
+# when nobody answered or for a flag (--settings, --daemon, --clear-cache),
+# and then Python takes over: it forwards to a daemon if one is up, or
+# becomes one.
+if [ $# -gt 0 ] && "@LIBEXECDIR@/quickview-client" "$@"; then
+    exit 0
+fi
+exec /usr/bin/python3 "@DATADIR@/quickview.py" "$@"

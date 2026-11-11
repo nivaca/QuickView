@@ -280,33 +280,11 @@ if command -v systemctl >/dev/null 2>&1; then
     systemctl --user disable --now quickview.service 2>/dev/null || true
     pkill -f "^$DIR/.venv/bin/python $DIR/quickview.py" 2>/dev/null || true
     rm -f "${XDG_RUNTIME_DIR:-/tmp}/quickview-$(id -u)"
-    # %t/quickview-%U is $XDG_RUNTIME_DIR/quickview-<uid>: ipc.socket_path(),
-    # where both clients already connect.
-    cat > "$HOME/.config/systemd/user/quickview.socket" <<EOF
-[Unit]
-Description=QuickView socket (starts the previewer on first use)
-
-[Socket]
-ListenStream=%t/quickview-%U
-SocketMode=0600
-
-[Install]
-WantedBy=sockets.target
-EOF
-    # No [Install]: the socket starts it. PartOf so it goes with the
-    # session — the next login's panel needs the next session's display.
-    cat > "$HOME/.config/systemd/user/quickview.service" <<EOF
-[Unit]
-Description=QuickView previewer (started by quickview.socket)
-Requires=quickview.socket
-After=quickview.socket graphical-session.target
-PartOf=graphical-session.target
-
-[Service]
-ExecStart="$DIR/bin/quickview" --daemon
-Restart=on-failure
-RestartSec=5
-EOF
+    # The same units the RPM installs (packaging/), pointed at this
+    # checkout's launcher.
+    cp "$DIR/packaging/quickview.socket" "$HOME/.config/systemd/user/quickview.socket"
+    sed "s|@QUICKVIEW@|$DIR/bin/quickview|" "$DIR/packaging/quickview.service.in" \
+        > "$HOME/.config/systemd/user/quickview.service"
     rm -f "$HOME/.config/autostart/quickview-daemon.desktop"
     systemctl --user daemon-reload
     systemctl --user enable quickview.socket

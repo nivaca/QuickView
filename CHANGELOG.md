@@ -5,6 +5,28 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 2026-11-10 — an RPM package
+
+### Added
+
+- **QuickView builds as an RPM** (`packaging/quickview.spec`, version
+  0.1.0), with `packaging/build-rpm.sh` building it into `build/rpm/`. The
+  package runs on the system's Python, PySide6 and Pygments — no
+  virtualenv, which is the part of `install.sh` that broke when a checkout
+  was copied without its `pyvenv.cfg`. It installs the code in
+  `/usr/share/quickview/`, byte-compiled ahead of time since the jail sees
+  it read-only, the compiled client in `/usr/libexec/quickview/`, a
+  `/usr/bin/quickview` launcher, the socket and service as systemd user
+  units enabled for every user by a preset, and the settings window's and
+  Dolphin's menu entries. bubblewrap is required; archive tools and
+  LibreOffice are suggested.
+
+### Changed
+
+- **The systemd units are files** (`packaging/quickview.socket`,
+  `quickview.service.in`) rather than text inside `install.sh`, so the
+  package and `install.sh` install the same ones.
+
 ## 2026-11-10 — screenshots by script
 
 ### Added
