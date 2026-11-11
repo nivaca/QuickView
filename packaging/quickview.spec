@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.1.0
+Version:        0.1.1
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -123,6 +123,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/quickview-settings.de
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Tue Nov 10 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.1-1
+- The launcher starts quickview.socket on the first preview after
+  installing, so no logout is needed
+- GPL-3 notices in the launcher, the systemd units and the preset
+
 * Tue Nov 10 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.0-1
 - First package: runs on the system's Python, PySide6 and Pygments, with
   no virtualenv; socket-activated user units enabled by preset

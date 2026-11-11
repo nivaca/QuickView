@@ -5,6 +5,15 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 0.1.1 — 2026-11-10
+
+The entry below — the package needs no logout after installing — and:
+
+- **GPL-3 notices in the packaging files.** The package was already
+  GPL-3.0-or-later (its License tag and the GPLv3 text it installs), but
+  the spec, the launcher, the systemd units and the preset now carry the
+  project's licence header too, as every source file does.
+
 ## 2026-11-10 — no logout after installing the package
 
 ### Changed
