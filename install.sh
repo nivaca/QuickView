@@ -282,7 +282,8 @@ if command -v systemctl >/dev/null 2>&1; then
     rm -f "${XDG_RUNTIME_DIR:-/tmp}/quickview-$(id -u)"
     # The same units the RPM installs (packaging/), pointed at this
     # checkout's launcher.
-    cp "$DIR/packaging/quickview.socket" "$HOME/.config/systemd/user/quickview.socket"
+    sed -e "s|@PYTHON@|$PY|" -e "s|@APPDIR@|$DIR|" "$DIR/packaging/quickview.socket.in" \
+        > "$HOME/.config/systemd/user/quickview.socket"
     sed "s|@QUICKVIEW@|$DIR/bin/quickview|" "$DIR/packaging/quickview.service.in" \
         > "$HOME/.config/systemd/user/quickview.service"
     rm -f "$HOME/.config/autostart/quickview-daemon.desktop"
@@ -308,8 +309,7 @@ fi
 
 echo "Installed."
 echo
-echo "To get macOS-style Space previews, bind the shortcut in Dolphin:"
-echo "  1. Open Dolphin"
-echo "  2. Menu > Configure > Configure Keyboard Shortcuts..."
-echo "  3. Search for 'Quick Look'"
-echo "  4. Click it, choose Custom, and press Space"
+# Space in Dolphin. quickview.socket does this each time it starts (just
+# now, under systemd, so this reports "unchanged"); without systemd this is
+# what sets it up. It never overrides a shortcut the user chose.
+"$PY" "$DIR/dolphin_shortcut.py" || true

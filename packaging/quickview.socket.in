@@ -18,6 +18,12 @@ Description=QuickView socket (starts the previewer on first use)
 [Socket]
 ListenStream=%t/quickview-%U
 SocketMode=0600
+# Each time the socket starts — at login, and on installing — make Space
+# open the preview in Dolphin, unless the user has chosen otherwise (see
+# dolphin_shortcut.py). "-": a failure here must never stop the socket.
+# @PYTHON@ and @APPDIR@: the checkout's virtualenv and folder under
+# install.sh, /usr/bin/python3 and /usr/share/quickview in the package.
+ExecStartPost=-@PYTHON@ @APPDIR@/dolphin_shortcut.py
 
 [Install]
 WantedBy=sockets.target

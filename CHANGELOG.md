@@ -9,6 +9,19 @@ project has no version tags yet, so entries are dated.
 
 ### Added
 
+- **Space opens Quick Look in Dolphin without setting it up.** A service
+  menu cannot carry a shortcut, so `dolphin_shortcut.py` writes one into
+  the user's Dolphin settings (`kxmlgui5/dolphin/dolphinui.rc`), run by
+  `quickview.socket` each time it starts — at login and on installing —
+  and by `install.sh`. Dolphin's Selection Mode, which has Space by
+  default, moves off it when it still has that default. A shortcut the
+  user chose is never overridden: an existing Quick Look shortcut (or a
+  cleared one), or Space given to any other action, leaves the file as it
+  is. Only the shortcuts section is edited, the original is kept once as
+  `dolphinui.rc.before-quickview`, and with no settings file a minimal one
+  is written, which Dolphin expands into its own. Checked against a real
+  Dolphin 26.08 in an isolated session.
+
 - **`packaging/release.py VERSION` makes a whole release.** It checks
   that the tree is clean and in step with GitHub, that the tools are
   logged in, that the signing key is usable and that the tests pass; turns

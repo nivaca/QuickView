@@ -611,8 +611,8 @@ the settings window and Dolphin menu where Plasma finds them. There is no
 need to log out: the installer runs as root, outside your session, so it
 only enables the socket, and the launcher starts it on your first preview.
 
-Then bind Space in Dolphin (one-time):
-**Menu → Configure → Configure Keyboard Shortcuts… → search "Quick Look" → Custom → Space**
+Space then opens the preview in Dolphin — see [Space in Dolphin](#space-in-dolphin)
+below; restart Dolphin if it was already open.
 
 The RPMs attached to the [GitHub releases](https://github.com/nivaca/QuickView/releases)
 are signed too, from 0.1.2 on, with Nicolas Vaughan's key
@@ -644,13 +644,35 @@ the virtualenv too); the checkout itself is never touched.
 (a few hundred MB on first run), compiles the fast-path client if `rustc` is
 present, registers the Dolphin service menu, puts a `quickview` launcher on
 your `PATH`, and enables `quickview.socket`, which starts the daemon on the
-first preview (see [The daemon](#the-daemon)). Then bind Space as above.
+first preview (see [The daemon](#the-daemon)), and sets up
+[Space in Dolphin](#space-in-dolphin).
 
 Use one way or the other on a machine, not both: `install.sh`'s files in
 your home directory win over the package's — its units in
 `~/.config/systemd/user/` over the system ones, and its
 `~/.local/bin/quickview` over `/usr/bin/quickview` — so run
 `./uninstall.sh` before installing the package.
+
+### Space in Dolphin
+
+A Dolphin service menu cannot bring its own shortcut: Dolphin keeps those
+in your copy of its settings, `~/.local/share/kxmlgui5/dolphin/dolphinui.rc`.
+So QuickView adds **Space → Quick Look** there for you, each time
+`quickview.socket` starts — at login, and when you install — and Dolphin
+uses it from its next start.
+
+- Dolphin binds Space to its own **Selection Mode** by default, and one key
+  on two actions does neither, so Selection Mode moves off Space when it
+  still has that default. It stays in Dolphin's menu.
+- Nothing you chose is overridden. If Quick Look already has a shortcut —
+  or none, because you cleared it — or if you gave Space to Selection Mode
+  or any other action, the file is left as it is.
+- To use another key, change it in Dolphin: **Menu → Configure → Configure
+  Keyboard Shortcuts… → "Quick Look"**. QuickView will keep your choice.
+- The file as it was before QuickView first changed it is kept next to it,
+  as `dolphinui.rc.before-quickview`. To set it up by hand, run
+  `python3 /usr/share/quickview/dolphin_shortcut.py` (or `dolphin_shortcut.py`
+  in a checkout).
 
 ### Building the RPM yourself
 

@@ -77,9 +77,9 @@ sed -e 's|@LIBEXECDIR@|%{_libexecdir}/%{name}|' \
     packaging/quickview-launcher.in > %{buildroot}%{_bindir}/quickview
 chmod 0755 %{buildroot}%{_bindir}/quickview
 
-install -Dpm 0644 packaging/quickview.socket \
-    %{buildroot}%{_userunitdir}/quickview.socket
 install -d %{buildroot}%{_userunitdir}
+sed -e 's|@PYTHON@|%{python3}|' -e 's|@APPDIR@|%{_datadir}/%{name}|' \
+    packaging/quickview.socket.in > %{buildroot}%{_userunitdir}/quickview.socket
 sed 's|@QUICKVIEW@|%{_bindir}/quickview|' packaging/quickview.service.in \
     > %{buildroot}%{_userunitdir}/quickview.service
 install -Dpm 0644 packaging/80-quickview.preset \

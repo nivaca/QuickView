@@ -159,7 +159,7 @@ sudo dnf install ./{rpm}
 
 On another Fedora release, rebuild it with `rpmbuild --rebuild {srpm}`.
 
-Then bind Space in Dolphin: **Configure → Configure Keyboard Shortcuts… → "Quick Look" → Custom → Space**. There's no need to log out.
+Space then opens the preview in Dolphin (restart Dolphin if it was open); QuickView sets that up without overriding a shortcut you chose. There's no need to log out.
 
 **Any distribution:** clone the repository and run `./install.sh`. If you used `install.sh` before, run `./uninstall.sh` before installing the package.
 
