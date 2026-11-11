@@ -5,6 +5,21 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 2026-11-10 — no logout after installing the package
+
+### Changed
+
+- **The package's launcher starts the socket on first use.** Installing
+  the RPM enables `quickview.socket` for every user, but it only started
+  listening at the next login — the installer runs as root, outside the
+  session — so until then each preview fell back to a daemon systemd did
+  not manage, which started cold again after every idle exit. When nobody
+  answers a request for a file, the launcher now checks whether the socket
+  is enabled but not listening, starts it (reloading the user's systemd
+  once if it has not seen the new unit files yet) and sends the request
+  again. A disabled socket is left alone, flags such as `--settings` never
+  touch systemd, and without systemd nothing changes.
+
 ## 2026-11-10 — an RPM package
 
 ### Added

@@ -15,7 +15,33 @@
 # when nobody answered or for a flag (--settings, --daemon, --clear-cache),
 # and then Python takes over: it forwards to a daemon if one is up, or
 # becomes one.
-if [ $# -gt 0 ] && "@LIBEXECDIR@/quickview-client" "$@"; then
+CLIENT="@LIBEXECDIR@/quickview-client"
+if [ $# -gt 0 ] && "$CLIENT" "$@"; then
     exit 0
 fi
+
+# Nobody answered a request for a file. Right after the package is
+# installed, the socket is enabled for this user — by the package's preset
+# — but not yet listening: that happens at login, and the installer, which
+# runs as root and outside the session, does not reach into it. Start it
+# now and send again, and systemd starts the daemon on that very request;
+# without this, Python would run as a daemon systemd does not manage, and
+# every preview after its idle exit would start cold until the next login.
+# Not for a flag, and never a socket the user has disabled. The user's
+# manager may not have read the new unit files yet, hence one reload.
+case "$1" in
+    -*) ;;
+    "") ;;
+    *)
+        if command -v systemctl >/dev/null 2>&1 &&
+           systemctl --user -q is-enabled quickview.socket 2>/dev/null &&
+           ! systemctl --user -q is-active quickview.socket 2>/dev/null; then
+            if systemctl --user start quickview.socket 2>/dev/null ||
+               { systemctl --user daemon-reload 2>/dev/null &&
+                 systemctl --user start quickview.socket 2>/dev/null; }; then
+                "$CLIENT" "$@" && exit 0
+            fi
+        fi
+        ;;
+esac
 exec /usr/bin/python3 "@DATADIR@/quickview.py" "$@"

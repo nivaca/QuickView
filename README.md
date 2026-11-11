@@ -621,8 +621,12 @@ are, committed or not. The package puts the code in `/usr/share/quickview/`
 `/usr/bin/quickview`, the systemd units in `/usr/lib/systemd/user/` —
 enabled for every user by a preset, so `quickview.socket` starts the
 daemon on the first preview — and the settings window and Dolphin menu
-where Plasma finds them. Log out and back in once (or run
-`systemctl --user start quickview.socket`), then bind Space as above.
+where Plasma finds them. Then bind Space as above; there is no need to log
+out first. The installer runs as root, outside your session, so it only
+enables the socket, which would otherwise start at your next login; the
+launcher notices on the first preview that it is enabled but not yet
+listening and starts it then, so even that first preview is served by the
+socket-started daemon.
 
 Use one way or the other on a machine, not both: `install.sh`'s files in
 your home directory win over the package's — its units in
