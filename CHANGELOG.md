@@ -7,6 +7,19 @@ project has no version tags yet, so entries are dated.
 
 ## Unreleased
 
+### Added
+
+- **`packaging/release.py VERSION` makes a whole release.** It checks
+  that the tree is clean and in step with GitHub, that the tools are
+  logged in, that the signing key is usable and that the tests pass; turns
+  this changelog's "Unreleased" section into the version's (and into the
+  spec's `%changelog` entry); commits and tags; builds and signs the RPMs
+  with the key published as `packaging/RPM-GPG-KEY-quickview`; publishes
+  the GitHub release, with notes made from the changelog and checksums;
+  checks the downloaded RPMs' signatures as a user's `dnf` would; and
+  builds on Copr, waiting until every chroot serves the new version.
+  `--dry-run` shows what it would do and changes nothing.
+
 ### Changed
 
 - **The release RPMs are signed.** The RPMs attached to the GitHub

@@ -718,8 +718,10 @@ before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
   full launch as fallback
 - `settings_dialog.py` — the settings window (`quickview --settings`)
 - `tools/screenshots.py` — takes the README's screenshots, offscreen
-- `packaging/` — the RPM: `quickview.spec`, `build-rpm.sh`, and the
-  systemd units and launcher that both the package and `install.sh` use
+- `packaging/` — the RPM: `quickview.spec`, `build-rpm.sh`, the systemd
+  units and launcher that both the package and `install.sh` use, the
+  release signing key, and `release.py`, which makes a release from the
+  changelog to Copr
 - `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look" and
   "QuickView Settings")
 - `quickview-settings.desktop` — the settings window's application-menu

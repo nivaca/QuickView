@@ -64,6 +64,28 @@ copr-cli create quickview \
   fine here because nothing is downloaded during =%build=.
 - You can also do all of this in the web UI: "New Project".
 
+* Automated release (packaging/release.py)
+One command does all of Workflow A below, plus signing and the GitHub
+release, from the =## Unreleased= section of =CHANGELOG.md=:
+#+begin_src sh
+packaging/release.py 0.1.3 --dry-run   # checks, and shows what it would write
+packaging/release.py 0.1.3             # the release
+#+end_src
+- It stops at the first failed check: on =main=, clean, in step with
+  origin; a new, higher version; something under Unreleased; =gh= and
+  =copr-cli= logged in; =rpmsign= present; the signing key usable; tests
+  and lint passing.
+- Then it bumps the spec (its =%changelog= entry made from the Unreleased
+  headlines), renames Unreleased to the version, commits and tags, and
+  builds with =build-rpm.sh --sign=…= using the key whose public half is
+  =packaging/RPM-GPG-KEY-quickview=. gpg asks for the passphrase here.
+  Nothing has been pushed yet; if the build fails, it prints how to undo
+  the local commit and tag.
+- Then it pushes, publishes the GitHub release (signed RPMs, the key file,
+  notes from the changelog with checksums), checks the downloads'
+  signatures, builds the SRPM on Copr and waits until every chroot serves
+  the new version.
+
 * Workflow A: upload an SRPM
 ** First release (or any release)
 1. Make sure the tree is clean and committed. =build-rpm.sh= packs
@@ -194,6 +216,7 @@ copr-cli get nivaca/quickview          # project settings
   #+end_src
 
 * Quick reference: release checklist
+Automated: =packaging/release.py X.Y.Z= (try =--dry-run= first). By hand:
 - [ ] =rpmdev-bumpspec -n X.Y.Z -c "..." packaging/quickview.spec=
 - [ ] Update CHANGELOG.md
 - [ ] =git commit -am "Release X.Y.Z" && git tag vX.Y.Z && git push --tags=
