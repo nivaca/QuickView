@@ -5,6 +5,19 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **`packaging/build-rpm.sh --sign`** signs both RPMs with OpenPGP, so
+  `dnf` can check where they came from rather than warn that it skipped
+  the check. `--sign` uses the default GPG key, `--sign=KEY` names one;
+  the public key is exported as `build/rpm/RPM-GPG-KEY-quickview` for
+  people to import. Each signed package is then verified the way a user's
+  `dnf` would, in a keyring of its own holding only that exported key, so
+  a wrong key or a failed signature stops the build. A missing `rpm-sign`
+  or key is reported before building.
+
 ## 0.1.1 — 2026-11-10
 
 The entry below — the package needs no logout after installing — and:

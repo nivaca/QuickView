@@ -628,6 +628,20 @@ launcher notices on the first preview that it is enabled but not yet
 listening and starts it then, so even that first preview is served by the
 socket-started daemon.
 
+To sign the packages, so `dnf` can check where they came from instead of
+warning that it skipped the check, build with `--sign` (your default GPG
+key) or `--sign=KEY` (a key ID, email or fingerprint). This needs
+`rpm-sign`:
+
+```bash
+sudo dnf install rpm-sign
+packaging/build-rpm.sh --sign
+```
+
+The script verifies each signed package against the exported public key,
+`build/rpm/RPM-GPG-KEY-quickview`, which is what others import once
+before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
+
 Use one way or the other on a machine, not both: `install.sh`'s files in
 your home directory win over the package's — its units in
 `~/.config/systemd/user/` over the system ones, and its
