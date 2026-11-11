@@ -93,9 +93,11 @@ packaging/release.py 0.1.3             # the release
    #+begin_src sh
    git status --short        # should print nothing
    #+end_src
-2. Build the SRPM. You do not need =--sign=: COPR signs with its own key.
+2. Build the SRPM, signed (always: the RPMs are always signed, with the
+   key of =packaging/RPM-GPG-KEY-quickview=; gpg asks for the passphrase,
+   so run it in a terminal). COPR signs its own builds with its own key too.
    #+begin_src sh
-   packaging/build-rpm.sh
+   packaging/build-rpm.sh --sign=236EF043AB7A4434A05CA4ECB5549099FC0D6464
    ls build/rpm/SRPMS/       # quickview-0.1.1-1.fc45.src.rpm
    #+end_src
 3. Submit it:
@@ -135,7 +137,7 @@ packaging/release.py 0.1.3             # the release
    #+end_src
 3. Rebuild and upload the SRPM as above:
    #+begin_src sh
-   packaging/build-rpm.sh
+   packaging/build-rpm.sh --sign=236EF043AB7A4434A05CA4ECB5549099FC0D6464
    copr-cli build quickview build/rpm/SRPMS/quickview-0.1.2-*.src.rpm
    #+end_src
 4. Users get it with =sudo dnf upgrade=. COPR regenerates the repo
@@ -220,6 +222,7 @@ Automated: =packaging/release.py X.Y.Z= (try =--dry-run= first). By hand:
 - [ ] =rpmdev-bumpspec -n X.Y.Z -c "..." packaging/quickview.spec=
 - [ ] Update CHANGELOG.md
 - [ ] =git commit -am "Release X.Y.Z" && git tag vX.Y.Z && git push --tags=
-- [ ] =packaging/build-rpm.sh= (clean tree)
+- [ ] =packaging/build-rpm.sh --sign=FINGERPRINT= (clean tree; the key of
+      =packaging/RPM-GPG-KEY-quickview=)
 - [ ] =copr-cli build quickview build/rpm/SRPMS/quickview-X.Y.Z-*.src.rpm=
 - [ ] =sudo dnf upgrade --refresh quickview= and smoke-test
