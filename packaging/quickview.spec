@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.1.2
+Version:        0.1.3
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -123,6 +123,11 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/quickview-settings.de
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Wed Nov 11 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.3-1
+- Space opens Quick Look in Dolphin without setting it up
+- packaging/release.py VERSION makes a whole release
+- The release RPMs are signed
+
 * Wed Nov 11 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.2-1
 - Optional OpenPGP signing in build-rpm.sh (--sign)
 - A worker job's queued error no longer outlives the job
