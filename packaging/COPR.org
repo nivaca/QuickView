@@ -1,0 +1,202 @@
+#+TITLE: Publishing QuickView RPMs on Fedora COPR
+#+AUTHOR: nivaca
+#+STARTUP: overview
+
+* Overview
+COPR (https://copr.fedorainfracloud.org) builds RPMs from a source RPM
+(SRPM) or straight from git, signs them with its own key, and publishes
+them as a dnf repository.
+- Project URL :: https://copr.fedorainfracloud.org/coprs/nivaca/quickview/
+- Users install with :: =sudo dnf copr enable nivaca/quickview && sudo dnf install quickview=
+
+There are two ways to submit builds:
+1. *Upload an SRPM* built locally with =copr-cli=. This is the simplest way
+   and gives full control. See [[*Workflow A: upload an SRPM]].
+2. *SCM builds*: COPR clones the GitHub repo itself, and can rebuild on
+   every push or tag through a webhook. See [[*Workflow B: build from git (optional)]].
+
+* One-time setup
+** 1. Fedora account
+- Log in at https://copr.fedorainfracloud.org with your Fedora account
+  (FAS, https://accounts.fedoraproject.org). Create one first if needed.
+
+** 2. Install the client
+#+begin_src sh
+sudo dnf install copr-cli rpm-build rpmdevtools
+#+end_src
+
+** 3. API token
+- Open https://copr.fedorainfracloud.org/api/ while logged in.
+- Copy the block it shows into =~/.config/copr=:
+#+begin_src conf
+[copr-cli]
+login = <shown on the page>
+username = nivaca
+token = <shown on the page>
+copr_url = https://copr.fedorainfracloud.org
+#+end_src
+#+begin_src sh
+chmod 600 ~/.config/copr
+copr-cli whoami          # should print: nivaca
+#+end_src
+- *The token expires after 180 days.* The API page shows the expiry date.
+  When it runs out, download a new block and replace the file.
+
+** 4. Create the project
+List the chroots (build targets) on offer, then create the project:
+#+begin_src sh
+copr-cli list-chroots | grep -E '^fedora-(4[4-9]|rawhide)-(x86_64|aarch64)'
+
+copr-cli create quickview \
+  --chroot fedora-44-x86_64 \
+  --chroot fedora-45-x86_64 \
+  --chroot fedora-rawhide-x86_64 \
+  --chroot fedora-44-aarch64 \
+  --chroot fedora-45-aarch64 \
+  --description "Quick Look style file previewer for KDE Plasma (Dolphin: select a file, press Space)." \
+  --instructions "sudo dnf copr enable nivaca/quickview && sudo dnf install quickview" \
+  --repo-priority 99
+#+end_src
+- The spec has =%global debug_package %{nil}= and only needs
+  python3-devel, rust, systemd-rpm-macros and desktop-file-utils. All of
+  these are in Fedora, so no extra repos are needed.
+- Builds run without network by default (=--enable-net off=). That is
+  fine here because nothing is downloaded during =%build=.
+- You can also do all of this in the web UI: "New Project".
+
+* Workflow A: upload an SRPM
+** First release (or any release)
+1. Make sure the tree is clean and committed. =build-rpm.sh= packs
+   uncommitted changes too.
+   #+begin_src sh
+   git status --short        # should print nothing
+   #+end_src
+2. Build the SRPM. You do not need =--sign=: COPR signs with its own key.
+   #+begin_src sh
+   packaging/build-rpm.sh
+   ls build/rpm/SRPMS/       # quickview-0.1.1-1.fc45.src.rpm
+   #+end_src
+3. Submit it:
+   #+begin_src sh
+   copr-cli build quickview build/rpm/SRPMS/quickview-*.src.rpm
+   #+end_src
+   - This waits and shows progress. Add =--nowait= to return at once.
+   - Add =-r fedora-45-x86_64= (repeatable) to build only some chroots.
+4. Check results:
+   #+begin_src sh
+   copr-cli list-builds nivaca/quickview
+   copr-cli status <BUILD_ID>
+   copr-cli watch-build <BUILD_ID>
+   #+end_src
+   Build logs (=builder-live.log=) are linked from the build's web page.
+5. Test as a user would:
+   #+begin_src sh
+   sudo dnf copr enable nivaca/quickview
+   sudo dnf install quickview      # or: sudo dnf upgrade quickview
+   #+end_src
+
+** Updating to a new version
+1. Bump the version and add a changelog entry in =packaging/quickview.spec=:
+   #+begin_src sh
+   rpmdev-bumpspec -n 0.1.2 -c "Short description of the change" \
+       -u "Nicolas Vaughan <nivaca@fastmail.com>" packaging/quickview.spec
+   #+end_src
+   - =-n VERSION= sets =Version:= and resets =Release:= to 1.
+   - For a packaging-only fix with the same upstream version, leave out
+     =-n=. That bumps =Release:= (1 → 2).
+   - Keep =CHANGELOG.md= in step if it applies.
+2. Commit and tag:
+   #+begin_src sh
+   git commit -am "Release 0.1.2"
+   git tag v0.1.2
+   git push && git push --tags
+   #+end_src
+3. Rebuild and upload the SRPM as above:
+   #+begin_src sh
+   packaging/build-rpm.sh
+   copr-cli build quickview build/rpm/SRPMS/quickview-0.1.2-*.src.rpm
+   #+end_src
+4. Users get it with =sudo dnf upgrade=. COPR regenerates the repo
+   metadata after each build. dnf can take a while to notice, because of
+   its metadata cache (=sudo dnf upgrade --refresh= forces a check).
+
+*Rule:* each upload needs a higher Version-Release (EVR) than the last.
+Otherwise dnf will not see it as an update.
+
+* Workflow B: build from git (optional)
+COPR clones github.com/nivaca/QuickView and makes the SRPM itself.
+=Source0= is a local tarball, so use the =make_srpm= method and a
+=.copr/Makefile= in the repo. (Untested sketch: do the first SCM build by
+hand before turning on the webhook.)
+
+#+begin_src makefile
+# .copr/Makefile — COPR runs: make -f .copr/Makefile srpm outdir=... spec=...
+srpm:
+	dnf -y install git rpm-build
+	git config --global --add safe.directory "$$PWD"
+	v=$$(rpmspec -q --srpm --qf '%{version}' $(spec)); \
+	git archive --prefix=quickview-$$v/ \
+	    -o $(outdir)/quickview-$$v.tar.gz HEAD; \
+	rpmbuild -bs --define "_sourcedir $(outdir)" \
+	    --define "_srcrpmdir $(outdir)" $(spec)
+#+end_src
+(Recipe lines must start with a TAB.)
+
+Register the package:
+#+begin_src sh
+copr-cli add-package-scm quickview \
+  --name quickview \
+  --clone-url https://github.com/nivaca/QuickView.git \
+  --commit main \
+  --spec packaging/quickview.spec \
+  --method make_srpm \
+  --webhook-rebuild on
+#+end_src
+- Manual build from the latest commit:
+  =copr-cli build-package quickview --name quickview=
+- Automatic builds: open Project → Settings → Integrations, copy the
+  GitHub webhook URL, and add it in GitHub under Repo → Settings →
+  Webhooks (content type =application/json=, "Just the push event", or
+  pick "Branch or tag creation" to build only on tags).
+- Change settings later with =copr-cli edit-package-scm quickview --name quickview ...=
+- *Caution:* every push to =main= then makes a build. If =Release:= is
+  not bumped, it has the same EVR as the last one and users do not get
+  it. Either bump the spec with every pushed change, or point =--commit=
+  at a release branch, or trigger on tags only.
+
+* Maintenance
+** New Fedora release / EOL
+Add new chroots when Fedora branches, and drop EOL ones:
+#+begin_src sh
+copr-cli modify quickview \
+  --chroot fedora-45-x86_64 --chroot fedora-46-x86_64 \
+  --chroot fedora-rawhide-x86_64 \
+  --chroot fedora-45-aarch64 --chroot fedora-46-aarch64
+#+end_src
+(=--chroot= in =modify= *replaces* the whole list, so name all of them.)
+Then rebuild the current SRPM so the new chroot has packages. Or, in the
+web UI's "Regenerate"/"Fork" options for a new chroot, copy builds over
+from a previous chroot.
+
+** Housekeeping
+#+begin_src sh
+copr-cli list-builds nivaca/quickview
+copr-cli cancel <BUILD_ID>
+copr-cli delete-build <BUILD_ID>
+copr-cli get nivaca/quickview          # project settings
+#+end_src
+- Renew the API token every 180 days ([[*3. API token]]).
+- Failed builds: read =builder-live.log= on the build page, then fix and
+  rebuild. To reproduce locally with the same setup:
+  #+begin_src sh
+  sudo dnf install mock && sudo usermod -aG mock $USER   # re-login
+  mock -r fedora-45-x86_64 build/rpm/SRPMS/quickview-*.src.rpm
+  #+end_src
+
+* Quick reference: release checklist
+- [ ] =rpmdev-bumpspec -n X.Y.Z -c "..." packaging/quickview.spec=
+- [ ] Update CHANGELOG.md
+- [ ] =git commit -am "Release X.Y.Z" && git tag vX.Y.Z && git push --tags=
+- [ ] =packaging/build-rpm.sh= (clean tree)
+- [ ] =copr-cli build quickview build/rpm/SRPMS/quickview-X.Y.Z-*.src.rpm=
+- [ ] =sudo dnf upgrade --refresh quickview= and smoke-test
