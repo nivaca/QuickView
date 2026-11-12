@@ -26,6 +26,16 @@ project has no version tags yet, so entries are dated.
   and box it is sent, and caps the text it accepts. The RPM recommends
   `poppler-utils`.
 
+### Changed
+
+- **A new signing key.** The release RPMs are now signed with Nicolas
+  Vaughan's key `8187 0643 CA22 1AF9 0C30  554E BE68 32CD 3599 4948`,
+  which replaces `236E F043 AB7A 4434 A05C  A4EC B554 9099 FC0D 6464`.
+  `packaging/RPM-GPG-KEY-quickview` and the key attached to the release
+  are the new one; anyone who installs the downloaded RPMs imports it
+  once more (`sudo rpm --import RPM-GPG-KEY-quickview`). The Copr
+  packages are signed by Copr's own key and are not affected.
+
 ## 0.1.3 — 2026-11-11
 
 ### Added

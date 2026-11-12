@@ -26,7 +26,7 @@ _spec = importlib.util.spec_from_file_location(
 release = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(release)
 
-FPR = "236EF043AB7A4434A05CA4ECB5549099FC0D6464"
+FPR = "81870643CA221AF90C30554EBE6832CD35994948"
 WHEN = datetime.date(2026, 11, 12)
 
 CHANGELOG = """# Changelog
@@ -146,7 +146,7 @@ class Notes(unittest.TestCase):
 
     def test_the_fingerprint_is_written_as_gpg_writes_it(self):
         self.assertEqual(release.spaced_fingerprint(FPR),
-                         "236E F043 AB7A 4434 A05C  A4EC B554 9099 FC0D 6464")
+                         "8187 0643 CA22 1AF9 0C30  554E BE68 32CD 3599 4948")
         self.assertIn(release.spaced_fingerprint(FPR), self.notes())
 
     def test_no_ai_credit(self):

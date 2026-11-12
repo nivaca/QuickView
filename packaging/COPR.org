@@ -97,7 +97,7 @@ packaging/release.py 0.1.3             # the release
    key of =packaging/RPM-GPG-KEY-quickview=; gpg asks for the passphrase,
    so run it in a terminal). COPR signs its own builds with its own key too.
    #+begin_src sh
-   packaging/build-rpm.sh --sign=236EF043AB7A4434A05CA4ECB5549099FC0D6464
+   packaging/build-rpm.sh --sign=81870643CA221AF90C30554EBE6832CD35994948
    ls build/rpm/SRPMS/       # quickview-0.1.1-1.fc45.src.rpm
    #+end_src
 3. Submit it:
@@ -137,7 +137,7 @@ packaging/release.py 0.1.3             # the release
    #+end_src
 3. Rebuild and upload the SRPM as above:
    #+begin_src sh
-   packaging/build-rpm.sh --sign=236EF043AB7A4434A05CA4ECB5549099FC0D6464
+   packaging/build-rpm.sh --sign=81870643CA221AF90C30554EBE6832CD35994948
    copr-cli build quickview build/rpm/SRPMS/quickview-0.1.2-*.src.rpm
    #+end_src
 4. Users get it with =sudo dnf upgrade=. COPR regenerates the repo
