@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.1.5
+Version:        0.1.6
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -136,6 +136,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.6-1
+- An About button in the settings window
+
 * Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.5-1
 - Upgrading the RPM restarts a running daemon
 
