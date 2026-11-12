@@ -107,9 +107,19 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/quickview-settings.de
 
 %post
 %systemd_user_post quickview.socket
+if [ $1 -ge 2 ] && [ -x %{_prefix}/lib/systemd/systemd-update-helper ]; then
+    %{_prefix}/lib/systemd/systemd-update-helper mark-restart-user-units quickview.service || :
+fi
 
 %preun
 %systemd_user_preun quickview.socket
+
+# An upgrade restarts a running daemon, so it runs the new code at once
+# rather than at the next login. %postun runs from the package being
+# replaced, so the new one also marks it here, which covers an upgrade
+# from a version without the %postun. Only a running unit is restarted.
+%postun
+%systemd_user_postun_with_restart quickview.service
 
 %files
 %license LICENSE

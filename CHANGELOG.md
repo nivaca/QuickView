@@ -5,6 +5,16 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Fixed
+
+- **Upgrading the RPM restarts a running daemon.** It used to keep running
+  the old version until the next login, so a new feature (selecting a
+  PDF's text, in 0.1.4) seemed missing after `dnf upgrade`. The package
+  now marks `quickview.service` for a restart, which systemd carries out
+  at the end of the transaction for every logged-in user.
+
 ## 0.1.4 — 2026-11-12
 
 ### Added
