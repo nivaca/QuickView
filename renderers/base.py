@@ -77,6 +77,21 @@ PDF_MAX_OUTLINE = 2000
 OUTLINE_MAX_TITLE = 200
 
 
+# Text layer bounds, per page: what a page's selectable text may cost on
+# the wire. A real page has a few thousand characters; a PDF built to be
+# hostile can claim millions, and each word is a rectangle the daemon keeps.
+PDF_TEXT_MAX_CHARS = 200_000
+PDF_TEXT_MAX_WORDS = 20_000
+# The fallback measures every word with its own QtPdf call, ~1 ms each, so
+# it stops sooner: past this, the rest of the page is not selectable.
+PDF_TEXT_MAX_WORDS_SLOW = 4_000
+# Poppler's pdftotext lays a page's words out with their boxes in one pass,
+# ~30 times faster than asking QtPdf word by word. By absolute path: the jail
+# runs --clearenv, with no PATH to search.
+PDFTOTEXT = "/usr/bin/pdftotext"
+PDFTOTEXT_TIMEOUT = 15
+
+
 def _encode(img, fmt: str = "PNG", quality: int = PNG_QUALITY) -> bytes:
     from PySide6.QtCore import QBuffer, QIODevice
 

@@ -237,6 +237,19 @@ def op_epubsearch(job, src, fd, out):
     ))
 
 
+def op_pdftext(job, src, fd, out):
+    # The words of some pages and their boxes, for selecting and copying
+    # text. Asked for when the reader first presses on a page (or for every
+    # page at once, for Select All) — not with every render, which would
+    # tax every preview for a feature most never use.
+    pages = job.get("pages") or []
+    if not isinstance(pages, list):
+        raise RuntimeError("pages must be a list")
+    out.header(1)
+    out.json(renderers.page_text(src, fd, pages[:job["max_pages"]],
+                                 job["page_w"], job["max_pages"]))
+
+
 def op_pdfoutline(job, src, fd, out):
     # The bookmarks, for the sidebar. A separate op rather than a
     # field on the render's header: the render streams from a
@@ -305,6 +318,7 @@ OPS = {
     "pdf": op_pdf,
     "text": op_text,
     "pdfsearch": op_pdfsearch,
+    "pdftext": op_pdftext,
     "archive": op_archive,
     "epub": op_epub,
     "markdown": op_markdown,

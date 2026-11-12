@@ -74,6 +74,7 @@ from .images import (
     render_anim,
 )
 from .pdf import (
+    page_text,
     _open_pdf,
     _page_px,
     _flatten,
@@ -237,6 +238,7 @@ from .markdown import (
 # Every name, private ones included: worker.py, the CLI helpers and the
 # tests all reach in through `renderers.<name>`.
 __all__ = [
+    "page_text",
     "DEFAULT_READING_FONT_SIZE",
     "READING_FONT_SIZE_MAX",
     "READING_FONT_SIZE_MIN",

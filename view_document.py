@@ -278,6 +278,10 @@ class DocumentViewMixin:
             self._find_page_w = page_w
         else:
             find_bar.hide()
+        # Selecting and copying text, for a PDF: its text layer places every
+        # word. (A book's or an office document's pages have none to ask.)
+        if op == "pdf":
+            self.enable_text_selection(path, page_w)
         avail = self.screen_avail()
         self._page_size = (
             int(avail.width() * 0.55), int(avail.height() * 0.85)

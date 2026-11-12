@@ -109,6 +109,37 @@ class MatchOverlay(QWidget):
         painter.end()
 
 
+class SelectionOverlay(QWidget):
+    """The selected text on one rendered page, as translucent bands.
+
+    Like MatchOverlay: a child of the page's QLabel, its size, and
+    transparent to the mouse, so the drag that makes the selection keeps
+    reaching the page. The colour is the theme's accent — the selection
+    colour of the desktop under breeze — at a strength that leaves the
+    text under it readable.
+    """
+
+    def __init__(self, parent, colour: str):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self._rects = []
+        self._colour = QColor(colour)
+        self._colour.setAlpha(110)
+
+    def set_rects(self, rects: list):
+        if rects != self._rects:
+            self._rects = rects
+            self.update()
+
+    def paintEvent(self, _event):
+        if not self._rects:
+            return
+        painter = QPainter(self)
+        for x, y, w, h in self._rects:
+            painter.fillRect(QRect(x, y, w, h), self._colour)
+        painter.end()
+
+
 class TitleBar(QWidget):
     """Quick Look style header: close button left, centered file name."""
 

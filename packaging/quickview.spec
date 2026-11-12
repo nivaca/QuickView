@@ -33,6 +33,9 @@ Requires:       python3-pygments
 # Every parser runs in a bubblewrap jail; without it nothing is previewed.
 Requires:       bubblewrap
 %{?systemd_requires}
+# Selecting a PDF's text: pdftotext gives each word's box quickly and in
+# reading order. Without it QtPdf is used, which is several times slower.
+Recommends:     poppler-utils
 
 # Optional: archive listings beyond zip and tar, and exact office layout
 # (QuickView also finds the Flathub LibreOffice on its own).

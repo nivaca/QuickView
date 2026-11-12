@@ -49,6 +49,11 @@ just like Quick Look on a multi-file selection.
 - **Find in PDFs and books.** **Ctrl+F** searches the text and highlights
   matches in place; **Enter** / **Shift+Enter** step through them. Phrases
   work, including across line breaks.
+- **Select and copy a PDF's text**, as in Quick Look: drag across the page
+  (the view scrolls when the pointer leaves it), double-click a word, or
+  press **Ctrl+A**; **Ctrl+C** copies. Lines and paragraphs keep their
+  breaks, and the selection also goes to the primary selection, so a
+  middle-click pastes it.
 - **Contents sidebar.** The **☰** button top left lists a PDF's bookmarks, a
   book's chapters or a Markdown file's headings — nested and with page
   numbers; clicking one jumps to that heading, not merely to the page it is
@@ -129,6 +134,8 @@ just like Quick Look on a multi-file selection.
 | ← / →           | Previous / next file — pages through the selection if several files were passed, otherwise folder siblings |
 | Enter           | Open the file in its default application  |
 | Ctrl+F          | Find text in a PDF, words or phrases — Enter and Shift+Enter step through matches, Esc closes |
+| Drag / double-click | Select a PDF's text, or one word           |
+| Ctrl+A / Ctrl+C | Select all of a PDF's text / copy the selection |
 | Ctrl+Q          | Quit the background daemon entirely       |
 
 ## Syntax highlighting
@@ -282,6 +289,15 @@ now; a cached preview is ~2 ms.
   metadata card.
 - **PDFs** — pages stream one at a time, so page 1 appears while the rest
   (capped at 50) render; each page is cached individually.
+  Selecting text needs to know where each word is. That is a `pdftext` op,
+  asked for a page only once a press lands on it (Ctrl+A asks for all of
+  them in one job): Poppler's `pdftotext -bbox-layout`, run inside the jail
+  on the passed descriptor, gives a page's words in reading order in about
+  25 ms, and QtPdf is the fallback. Line and paragraph breaks are worked
+  out from where the lines sit, not from Poppler's blocks, so a list does
+  not copy with a blank line between items. The daemon checks every offset
+  and box before it uses them (`text_select.py`), and the mouse handling
+  is in `view_selection.py`.
 - **Animations** (GIF/APNG) — every frame is decoded in the jail and
   streamed here; playback is a timer cycling pixmaps the daemon already
   holds, so no animation parser runs in this process.
@@ -575,6 +591,9 @@ of this by itself; the list below is for `install.sh`.
 - **Pygments**, optional — a system Pygments is used when present,
   otherwise `install.sh` installs it into the virtualenv. Without it, code
   previews are plain text.
+- **Poppler's `pdftotext`** (`poppler-utils`), optional — finds where each
+  word of a PDF is, for selecting its text. Without it QtPdf does the same,
+  several times more slowly.
 - **Rust** (`rustc`), optional — `install.sh` uses it to build the small
   fast-path client that hands a path to the daemon in under a millisecond.
   No crates and no Cargo, just `rustc`. Without it the Python client does
@@ -708,7 +727,9 @@ before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
   It holds the panel window, the IPC socket and the dispatch from file type
   to view; the views themselves are mixins in `view_image.py`,
   `view_document.py` (PDF, Markdown, EPUB, contents, find), `view_media.py`,
-  `view_text.py` (code, HTML, folders, archives) and `view_office.py`
+  `view_text.py` (code, HTML, folders, archives) and `view_office.py`,
+  and selecting a PDF's text is `view_selection.py` with its logic in
+  `text_select.py`
 - `common.py` — settings, file-type tables, the panel stylesheet, logging
   and the disk cache; `sandbox.py` — the bubblewrap jail and the workers
   that run in it; `widgets.py` — the titlebar, seek bar and match overlay

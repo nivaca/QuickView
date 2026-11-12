@@ -5,6 +5,27 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **A PDF's text can be selected and copied, as in Quick Look.** Dragging
+  across a page selects from word to word, across pages too, scrolling the
+  view when the pointer goes past its edge; a double-click selects a word;
+  Ctrl+A selects everything and Ctrl+C copies. A click elsewhere clears
+  the selection, which also goes to the primary selection for
+  middle-click pasting. The pages show a text cursor.
+
+  The words' positions come from the jail, like everything else read from
+  the file: a new `pdftext` op runs Poppler's `pdftotext -bbox-layout` on
+  the passed descriptor (about 25 ms a page), with QtPdf as the fallback
+  when Poppler is not installed. A page's text is asked for only when a
+  press lands on it. Line and paragraph breaks in the copied text come from
+  the lines' positions, so list items stay on consecutive lines and a
+  heading's number stays with its title. The daemon validates every offset
+  and box it is sent, and caps the text it accepts. The RPM recommends
+  `poppler-utils`.
+
 ## 0.1.3 — 2026-11-11
 
 ### Added

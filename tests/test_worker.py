@@ -28,6 +28,7 @@ import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtGui import QColor, QImage  # noqa: E402
@@ -35,6 +36,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
+import samplepdf  # noqa: E402
 import worker  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -105,6 +107,27 @@ class Serve(unittest.TestCase):
                          (True, 1, "8×6"))
         self.assertFalse(QImage.fromData(out[1]).isNull())
         self.assertEqual(out[2:], [b""])
+
+    def test_a_text_layer_is_a_header_and_the_pages_words(self):
+        path = os.path.join(self.tmp.name, "sample.pdf")
+        samplepdf.write(path)
+        with open(path, "rb") as fh:
+            data = fh.read()
+        code, out = self.request(
+            {"op": "pdftext", "pages": [0], "page_w": 400, "max_pages": 5}, data)
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(out[0]), {"ok": True, "count": 1})
+        layer = json.loads(out[1])["pages"][0]
+        self.assertEqual(layer["page"], 0)
+        self.assertIn(samplepdf.WORD, layer["text"])
+        self.assertTrue(layer["words"])
+        self.assertEqual(out[-1], b"")
+
+    def test_a_text_layer_needs_a_list_of_pages(self):
+        code, out = self.request(
+            {"op": "pdftext", "pages": "0", "page_w": 400, "max_pages": 5})
+        self.assertEqual(code, 1)
+        self.assertFalse(json.loads(out[0])["ok"])
 
     def test_an_unknown_op_is_refused_before_any_header(self):
         code, out = self.request({"op": "format-c"})

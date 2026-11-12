@@ -99,6 +99,9 @@ from view_media import (
 from view_office import (
     OfficeViewMixin,
 )
+from view_selection import (
+    TextSelectionMixin,
+)
 from view_text import (
     TextViewMixin,
 )
@@ -107,7 +110,7 @@ from widgets import (
 )
 
 class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
-                TextViewMixin, OfficeViewMixin, QWidget):
+                TextViewMixin, OfficeViewMixin, TextSelectionMixin, QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(
@@ -141,6 +144,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self._prefetch_queue = []  # (path, key, job) awaiting a warm render
         self._pdf_gen = None  # token invalidating in-flight page appends
         self._pdf_labels = []  # one placeholder per page of the open PDF
+        self._reset_text_selection()
         self._pdf_overlays = []  # a MatchOverlay per page, for find results
         self._find_bar = None    # the Ctrl+F row, while a PDF is showing
         self._find_scroll = None  # the page column's QScrollArea
@@ -553,6 +557,8 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         # "Loading…" message for the page column while its helper is still
         # streaming, so it must not go through clear_content().
         self._pdf_gen = None
+        # The text and the selection belong to the pages being torn down.
+        self._reset_text_selection()
         self._pdf_labels = []  # they are about to be deleted with the view
         self._pdf_overlays = []
         # The sidebar is a child of the view being torn down; the entries

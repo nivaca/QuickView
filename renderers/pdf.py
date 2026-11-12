@@ -16,6 +16,11 @@ from .base import (
     PDF_MAX_HITS,
     PDF_MAX_OUTLINE,
     PDF_MAX_PAGE_PX,
+    PDF_TEXT_MAX_CHARS,
+    PDF_TEXT_MAX_WORDS,
+    PDF_TEXT_MAX_WORDS_SLOW,
+    PDFTOTEXT,
+    PDFTOTEXT_TIMEOUT,
 )
 
 
@@ -163,6 +168,172 @@ def _scan(doc, pages: list, query: str, page_w: int, max_hits: int,
                                 "loose": False}
             at = hay.find(needle, at + 1)
     return {"matches": matches, "capped": False, "loose": False}
+
+
+def page_text(source, fd: int, pages: list, page_w: int,
+              max_pages: int) -> dict:
+    """The selectable text of some pages, for copying.
+
+    Returns {"pages": [{"page": n, "text": str, "words": [[start, end, x,
+    y, w, h, line], ...]}, ...], "engine": "poppler" | "qtpdf"}: each page's
+    text as it should be copied, and each word's span in that text and its
+    box in page pixels — the space search and the rendered pages share, so
+    the daemon draws a selection over a page without parsing anything.
+    `line` numbers the page's lines, so a selection can be drawn as one
+    band per line instead of a row of word boxes.
+
+    Poppler's pdftotext does the work when it is installed: one pass lays
+    the words out in reading order, columns and all, with the paragraph
+    structure the copied text keeps. Without it, QtPdf's own text is used,
+    measured word by word — slower, and in the order the file stores it.
+    """
+    doc = _open_pdf(source)
+    count = min(doc.pageCount(), max_pages)
+    wanted = sorted({p for p in pages if isinstance(p, int) and 0 <= p < count})
+    if not wanted:
+        return {"pages": [], "engine": ""}
+    layout = _poppler_layout(fd, wanted[0], wanted[-1])
+    out = []
+    for i in wanted:
+        w_px, h_px = _page_px(doc, i, page_w)
+        if layout is not None and i in layout:
+            width_pt, height_pt, lines = layout[i]
+            sx, sy = w_px / max(width_pt, 1), h_px / max(height_pt, 1)
+            out.append(_layer_from_lines(i, lines, sx, sy))
+        else:
+            out.append(_layer_from_qtpdf(doc, i, w_px, h_px))
+    return {"pages": out, "engine": "poppler" if layout is not None else "qtpdf"}
+
+
+def _poppler_layout(fd: int, first: int, last: int):
+    """{page: (width, height, [[(paragraph, x0, y0, x1, y1, word), ...]
+    per line])} in points, from pdftotext -bbox-layout; or None when it is
+    missing or its answer cannot be read."""
+    import os
+    import subprocess
+    import xml.etree.ElementTree as ET
+
+    if not os.access(PDFTOTEXT, os.X_OK):
+        return None
+    try:
+        proc = subprocess.run(
+            [PDFTOTEXT, "-q", "-bbox-layout", "-f", str(first + 1),
+             "-l", str(last + 1), "/dev/fd/%d" % fd, "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+            pass_fds=(fd,), timeout=PDFTOTEXT_TIMEOUT,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        root = ET.fromstring(proc.stdout)
+    except ET.ParseError:
+        return None  # a control character in the text can do this
+    layout = {}
+    for n, page in enumerate(e for e in root.iter() if _local(e.tag) == "page"):
+        try:
+            width = float(page.get("width"))
+            height = float(page.get("height"))
+        except (TypeError, ValueError):
+            continue
+        lines, paragraph = [], 0
+        for block in (e for e in page.iter() if _local(e.tag) == "block"):
+            paragraph += 1
+            for line in (e for e in block if _local(e.tag) == "line"):
+                words = []
+                for word in (e for e in line if _local(e.tag) == "word"):
+                    try:
+                        box = [float(word.get(k)) for k in
+                               ("xMin", "yMin", "xMax", "yMax")]
+                    except (TypeError, ValueError):
+                        continue
+                    if word.text:
+                        words.append((paragraph, *box, word.text))
+                if words:
+                    lines.append(words)
+        layout[first + n] = (width, height, lines)
+    return layout
+
+
+def _local(tag: str) -> str:
+    return tag.rsplit("}", 1)[-1]
+
+
+def _line_break(previous: tuple, line: tuple) -> str:
+    """What goes between two laid-out lines, from where they sit, each
+    (x0, y0, x1, y1) in points. Measured on real pages: lines of a
+    paragraph are ~0.4 line heights apart, tight list items ~0.8, and
+    paragraphs 1.2 and more.
+
+    * " " when the next one is on the same visual line, to the right:
+      pdftotext splits a heading's number from its title ("1.2" | "hwloc
+      Overview") into lines of their own;
+    * "\n" when it is no more than a line height below;
+    * "\n\n" for a larger gap, or a jump back up the page — a new column,
+      or a running head printed after the body.
+    """
+    px0, py0, px1, py1 = previous
+    x0, y0, x1, y1 = line
+    height = max(1e-6, min(py1 - py0, y1 - y0))
+    if y0 < py1 and y1 > py0:  # they overlap vertically
+        return " " if x0 >= px1 - height * 0.5 else "\n\n"
+    gap = y0 - py1
+    if gap < 0:
+        return "\n\n"
+    return "\n" if gap <= height else "\n\n"
+
+
+def _layer_from_lines(page: int, lines: list, sx: float, sy: float) -> dict:
+    """Join laid-out words into the copy text: a space between words, and
+    between lines whatever _line_break says their positions call for."""
+    text, words, previous = [], [], None
+    length = 0
+    for line_no, line in enumerate(lines):
+        box = (min(w[1] for w in line), min(w[2] for w in line),
+               max(w[3] for w in line), max(w[4] for w in line))
+        if previous is not None:
+            sep = _line_break(previous, box)
+            text.append(sep)
+            length += len(sep)
+        previous = box
+        for k, (_p, x0, y0, x1, y1, word) in enumerate(line):
+            if k:
+                text.append(" ")
+                length += 1
+            if (length + len(word) > PDF_TEXT_MAX_CHARS
+                    or len(words) >= PDF_TEXT_MAX_WORDS):
+                return {"page": page, "text": "".join(text), "words": words}
+            words.append([length, length + len(word),
+                          round(x0 * sx), round(y0 * sy),
+                          max(1, round((x1 - x0) * sx)),
+                          max(1, round((y1 - y0) * sy)), line_no])
+            text.append(word)
+            length += len(word)
+    return {"page": page, "text": "".join(text), "words": words}
+
+
+def _layer_from_qtpdf(doc, page: int, w_px: int, h_px: int) -> dict:
+    """The fallback: QtPdf's text, each word measured on its own."""
+    import re
+
+    pt = doc.pagePointSize(page)
+    sx, sy = w_px / max(pt.width(), 1), h_px / max(pt.height(), 1)
+    text = doc.getAllText(page).text()[:PDF_TEXT_MAX_CHARS].replace("\r\n", "\n")
+    words = []
+    for match in re.finditer(r"\S+", text):
+        if len(words) >= PDF_TEXT_MAX_WORDS_SLOW:
+            break
+        start, end = match.span()
+        sel = doc.getSelectionAtIndex(page, start, end - start)
+        if not sel.isValid():
+            continue
+        r = sel.boundingRectangle()
+        words.append([start, end, round(r.x() * sx), round(r.y() * sy),
+                      max(1, round(r.width() * sx)),
+                      max(1, round(r.height() * sy)),
+                      text.count("\n", 0, start)])
+    return {"page": page, "text": text, "words": words}
 
 
 def render_pdf(source, page_w: int, max_pages: int, start: int = 0,
