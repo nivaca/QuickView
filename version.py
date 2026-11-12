@@ -10,6 +10,6 @@
 """QuickView's version and where it comes from, for the About box.
 packaging/release.py sets VERSION along with the spec's Version."""
 
-VERSION = "0.1.6"
+VERSION = "0.1.7"
 HOMEPAGE = "https://github.com/nivaca/QuickView"
 UPSTREAM = "https://github.com/MustaphaAlioglou/QuickView"
