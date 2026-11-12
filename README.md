@@ -514,6 +514,9 @@ in Dolphin, with the **⚙** button in the panel, or with:
 quickview --settings
 ```
 
+Its **About** button shows the installed version, the authors and the
+licence.
+
 <p align="center">
   <img src="docs/screenshots/settings.png" width="60%" alt="The settings window on its Fonts tab, under Plasma's Breeze Dark colour scheme">
 </p>

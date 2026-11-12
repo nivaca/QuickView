@@ -30,6 +30,7 @@ import config  # noqa: E402
 import quickview  # noqa: E402
 import renderers  # noqa: E402
 import settings_dialog  # noqa: E402
+import version  # noqa: E402
 import worker  # noqa: E402
 
 
@@ -113,6 +114,25 @@ class Window(TempConfig):
 
     def press(self, dlg, which):
         dlg.buttons.button(getattr(QDialogButtonBox.StandardButton, which)).click()
+
+    def test_the_about_button_shows_version_authors_and_licence(self):
+        dlg = self.dialog()
+        shown = []
+        saved = settings_dialog.QMessageBox.about
+        settings_dialog.QMessageBox.about = staticmethod(
+            lambda parent, title, text: shown.append((title, text)))
+        self.addCleanup(setattr, settings_dialog.QMessageBox, "about", saved)
+        self.assertEqual(dlg.buttons.buttonRole(dlg.about_button),
+                         QDialogButtonBox.ButtonRole.HelpRole)
+        dlg.about_button.click()
+        self.assertEqual(len(shown), 1)
+        text = shown[0][1]
+        for expected in (version.VERSION, "Mustapha Alioglou",
+                         "Nicolas Vaughan", "General Public License",
+                         version.HOMEPAGE):
+            self.assertIn(expected, text)
+        for word in ("claude", "anthropic"):
+            self.assertNotIn(word, text.lower())
 
     def test_every_setting_has_a_field(self):
         self.assertEqual(set(self.dialog().values()), set(config._SETTINGS))

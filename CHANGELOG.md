@@ -5,6 +5,17 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **An About button in the settings window.** It shows QuickView's
+  version, its authors (Mustapha Alioglou, and Nicolas Vaughan for this
+  fork), links to this fork and to the original project, the licence, and
+  the Qt and PySide6 versions in use. The version comes from a new
+  `version.py`, which `packaging/release.py` now sets along with the
+  spec's, and a test keeps the two in step.
+
 ## 0.1.5 — 2026-11-12
 
 ### Fixed

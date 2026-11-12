@@ -23,15 +23,17 @@ value the loader would refuse.
 
 import os
 
-from PySide6.QtCore import Qt, QLockFile, QUrl
+from PySide6 import __version__ as PYSIDE_VERSION
+from PySide6.QtCore import Qt, QLockFile, QUrl, qVersion
 from PySide6.QtGui import QDesktopServices, QFont, QFontDatabase, QIcon
 from PySide6.QtWidgets import (
     QApplication, QButtonGroup, QCheckBox, QComboBox, QDialog,
     QDialogButtonBox, QFontComboBox, QFormLayout, QHBoxLayout, QLabel,
-    QPushButton, QRadioButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
+    QMessageBox, QPushButton, QRadioButton, QSpinBox, QTabWidget, QVBoxLayout, QWidget,
 )
 
 import config
+import version
 
 SAMPLE = "The quick brown fox — 0123456789 {}[]()"
 
@@ -172,6 +174,12 @@ class SettingsDialog(QDialog):
         buttons.button(
             QDialogButtonBox.StandardButton.RestoreDefaults).clicked.connect(
             lambda: self.set_values(config.defaults()))
+        # Help role: KDE's button order puts it on the left, apart from the
+        # buttons that close the window.
+        self.about_button = buttons.addButton(
+            "About", QDialogButtonBox.ButtonRole.HelpRole)
+        self.about_button.setIcon(QIcon.fromTheme("help-about"))
+        self.about_button.clicked.connect(self.show_about)
         self.buttons = buttons
 
         lay = QVBoxLayout(self)
@@ -368,6 +376,26 @@ class SettingsDialog(QDialog):
     def _open_logs(self):
         import common
         QDesktopServices.openUrl(QUrl.fromLocalFile(common.DATA_DIR))
+
+    # ------------------------------------------------------------ about
+    @staticmethod
+    def about_text() -> str:
+        return (
+            f"<h3>QuickView {version.VERSION}</h3>"
+            "<p>A Quick Look style file previewer for KDE Plasma: select a "
+            "file in Dolphin and press Space.</p>"
+            "<p>By Mustapha Alioglou. This fork is maintained by Nicolas "
+            "Vaughan.</p>"
+            f'<p><a href="{version.HOMEPAGE}">{version.HOMEPAGE}</a><br>'
+            f'Original project: <a href="{version.UPSTREAM}">'
+            f"{version.UPSTREAM}</a></p>"
+            "<p>Licensed under the GNU General Public License, version 3 or "
+            "later. QuickView comes with absolutely no warranty.</p>"
+            f"<p><small>Qt {qVersion()}, PySide6 {PYSIDE_VERSION}"
+            "</small></p>")
+
+    def show_about(self):
+        QMessageBox.about(self, "About QuickView", self.about_text())
 
     # ----------------------------------------------------------- saving
     def apply(self):

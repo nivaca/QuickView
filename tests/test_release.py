@@ -15,12 +15,15 @@ Only the text work — nothing here commits, builds, pushes or publishes.
 import datetime
 import importlib.util
 import os
+import re
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
 _spec = importlib.util.spec_from_file_location(
     "release", os.path.join(ROOT, "packaging", "release.py"))
 release = importlib.util.module_from_spec(_spec)
@@ -156,6 +159,21 @@ class Notes(unittest.TestCase):
 
 
 class Versions(unittest.TestCase):
+    def test_version_py_matches_the_spec(self):
+        import version
+        with open(release.SPEC, encoding="utf-8") as fh:
+            spec = fh.read()
+        self.assertRegex(spec, rf"(?m)^Version:\s+{re.escape(version.VERSION)}$")
+
+    def test_a_release_bumps_version_py(self):
+        with open(release.VERSION_FILE, encoding="utf-8") as fh:
+            original = fh.read()
+        bumped = release.bump_version_file(original, "9.8.7")
+        self.assertIn('VERSION = "9.8.7"\n', bumped)
+        self.assertEqual(len(bumped.splitlines()), len(original.splitlines()))
+        with self.assertRaises(release.ReleaseError):
+            release.bump_version_file("nothing here", "9.8.7")
+
     def test_versions_compare_as_numbers(self):
         self.assertGreater(release.version_tuple("0.1.10"),
                            release.version_tuple("0.1.9"))

@@ -52,6 +52,7 @@ import textwrap
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SPEC = os.path.join(ROOT, "packaging", "quickview.spec")
 CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
+VERSION_FILE = os.path.join(ROOT, "version.py")
 KEY_FILE = os.path.join(ROOT, "packaging", "RPM-GPG-KEY-quickview")
 GITHUB_REPO = "nivaca/QuickView"
 COPR_PROJECT = "nivaca/quickview"
@@ -97,6 +98,14 @@ def bump_changelog(changelog: str, version: str, date: str) -> str:
     if changelog.count(UNRELEASED + "\n") != 1:
         raise ReleaseError("CHANGELOG.md needs exactly one \"## Unreleased\"")
     return changelog.replace(UNRELEASED + "\n", f"## {version} — {date}\n", 1)
+
+
+def bump_version_file(text: str, version: str) -> str:
+    text, n = re.subn(r'^VERSION = "[^"]*"$', f'VERSION = "{version}"',
+                      text, count=1, flags=re.M)
+    if not n:
+        raise ReleaseError("version.py has no VERSION = \"...\" line")
+    return text
 
 
 def spec_entry(version: str, when: datetime.date, lines: list) -> str:
@@ -352,7 +361,10 @@ def main() -> int:
         with open(CHANGELOG, encoding="utf-8") as fh:
             new_changelog = bump_changelog(fh.read(), version,
                                            today.isoformat())
+        with open(VERSION_FILE, encoding="utf-8") as fh:
+            new_version_file = bump_version_file(fh.read(), version)
         if args.dry_run:
+            say(f"\n== Would set version.py's VERSION to \"{version}\"")
             say("\n== Would add to quickview.spec:\n")
             say(spec_entry(version, today, info["lines"]).rstrip())
             say(f"\n== Would rename \"## Unreleased\" to \"## {version} — "
@@ -370,9 +382,12 @@ def main() -> int:
             fh.write(new_spec)
         with open(CHANGELOG, "w", encoding="utf-8") as fh:
             fh.write(new_changelog)
+        with open(VERSION_FILE, "w", encoding="utf-8") as fh:
+            fh.write(new_version_file)
         message = f"Release {version}\n\n" + "\n".join(
             f"- {line}" for line in info["lines"])
-        run(["git", "commit", "-q", "-m", message, "--", SPEC, CHANGELOG])
+        run(["git", "commit", "-q", "-m", message, "--", SPEC, CHANGELOG,
+             VERSION_FILE])
         run(["git", "tag", "-a", f"v{version}", "-m", f"QuickView {version}"])
         try:
             built = build(info["fpr"])
