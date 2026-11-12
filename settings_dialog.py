@@ -384,8 +384,8 @@ class SettingsDialog(QDialog):
             f"<h3>QuickView {version.VERSION}</h3>"
             "<p>A Quick Look style file previewer for KDE Plasma: select a "
             "file in Dolphin and press Space.</p>"
-            "<p>By Mustapha Alioglou. This fork is maintained by Nicolas "
-            "Vaughan.</p>"
+            "<p>By Nicolas Vaughan (forked from the QuickView app by "
+            "Mustapha Alioglou).</p>"
             f'<p><a href="{version.HOMEPAGE}">{version.HOMEPAGE}</a><br>'
             f'Original project: <a href="{version.UPSTREAM}">'
             f"{version.UPSTREAM}</a></p>"

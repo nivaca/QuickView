@@ -5,6 +5,13 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **The About box credits the fork first:** "By Nicolas Vaughan (forked
+  from the QuickView app by Mustapha Alioglou)".
+
 ## 0.1.6 — 2026-11-12
 
 ### Added

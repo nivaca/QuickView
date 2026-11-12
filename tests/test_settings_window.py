@@ -127,8 +127,9 @@ class Window(TempConfig):
         dlg.about_button.click()
         self.assertEqual(len(shown), 1)
         text = shown[0][1]
-        for expected in (version.VERSION, "Mustapha Alioglou",
-                         "Nicolas Vaughan", "General Public License",
+        for expected in (version.VERSION,
+                         "By Nicolas Vaughan (forked from the QuickView app "
+                         "by Mustapha Alioglou)", "General Public License",
                          version.HOMEPAGE):
             self.assertIn(expected, text)
         for word in ("claude", "anthropic"):
