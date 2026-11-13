@@ -178,7 +178,7 @@ Space then opens the preview in Dolphin (restart Dolphin if it was open); QuickV
 |---|---|
 {rows}
 
-QuickView is by Mustapha Alioglou; this fork is maintained by Nicolas Vaughan. Licensed GPL-3.0-or-later.
+QuickView is by Nicolas Vaughan (forked from the QuickView app by Mustapha Alioglou). Licensed GPL-3.0-or-later.
 """
 
 

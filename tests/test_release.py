@@ -143,8 +143,8 @@ class Notes(unittest.TestCase):
                 "/releases/tag/v0.1.2",
                 "/blob/v0.1.3/CHANGELOG.md",
                 "**A new thing.**",
-                "QuickView is by Mustapha Alioglou; this fork is maintained "
-                "by Nicolas Vaughan."):
+                "QuickView is by Nicolas Vaughan (forked from the QuickView "
+                "app by Mustapha Alioglou)."):
             self.assertIn(expected, notes)
 
     def test_the_fingerprint_is_written_as_gpg_writes_it(self):

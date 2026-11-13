@@ -15,9 +15,9 @@ Multi-select works too: select **several files**, trigger QuickView, and
 **← / →** pages through them — the title shows your position (e.g. `2/5`),
 just like Quick Look on a multi-file selection.
 
-> **About this fork.** This is [nivaca/QuickView][fork], a fork of
-> [Mustapha Alioglou's QuickView][upstream] maintained by
-> **Nicolas Vaughan** (<nivaca@fastmail.com>). It adds support for the
+> **About this fork.** This is [nivaca/QuickView][fork], by
+> **Nicolas Vaughan** (<nivaca@fastmail.com>), forked from the
+> [QuickView app by Mustapha Alioglou][upstream]. It adds support for the
 > **Flathub LibreOffice**, fixes a bug that could leave the panel hanging,
 > splits the daemon into smaller modules and hardens the installer. See
 > [Authors and contributions](#authors-and-contributions) for the details.
