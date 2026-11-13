@@ -21,6 +21,7 @@ from .base import (
     _stderr,
 )
 from .office import (
+    document_text,
     _document_pages,
     _escape,
     _member_xml,
@@ -252,6 +253,17 @@ def _epub_document(fd: int, page_w: int, theme: str, font: str = "",
             doc.setPageSize(QSizeF(page_w, page_h))
             return {"doc": doc, "positions": positions, "toc": toc,
                     "headings": headings, "title": title, "palette": palette}
+
+
+def epub_text(fd: int, pages: list, page_w: int, max_pages: int,
+              theme: str = DEFAULT_BOOK_THEME, font: str = "",
+              font_size: int = DEFAULT_READING_FONT_SIZE) -> dict:
+    """The selectable text of some pages, from the same layout
+    epub_pages() paints: see office.document_text."""
+    page_h = int(page_w * PAGE_RATIO)
+    doc = _epub_document(fd, page_w, theme, font, font_size)["doc"]
+    return document_text(doc, pages, page_w, page_h,
+                         min(doc.pageCount(), max_pages))
 
 
 def search_epub(fd: int, query: str, page_w: int, max_pages: int,

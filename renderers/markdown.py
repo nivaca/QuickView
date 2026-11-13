@@ -23,6 +23,7 @@ from .epub import (
     EPUB_MAX_TOC,
 )
 from .office import (
+    document_text,
     _document_pages,
 )
 
@@ -46,6 +47,29 @@ def markdown_pages(fd: int, name: str, page_w: int, max_pages: int,
     the EPUB path: the headings are a property of the layout that produced
     the pages, so the sidebar can be built from the first frame.
     """
+    page_h = int(page_w * PAGE_RATIO)
+    doc, palette = _markdown_document(fd, page_w, theme, font, font_size)
+    count = min(doc.pageCount(), max_pages)
+    info = {"count": count, "chapters": _markdown_headings(doc, page_h, count)}
+    for _n, png in _document_pages(doc, page_w, page_h, count, start,
+                                   palette["bg"], scale):
+        yield info, png
+
+
+def markdown_text(fd: int, pages: list, page_w: int, max_pages: int,
+                  theme: str = DEFAULT_BOOK_THEME, font: str = "",
+                  font_size: int = DEFAULT_READING_FONT_SIZE) -> dict:
+    """The selectable text of some pages, laid out exactly as
+    markdown_pages() paints them: see office.document_text."""
+    page_h = int(page_w * PAGE_RATIO)
+    doc, _palette = _markdown_document(fd, page_w, theme, font, font_size)
+    return document_text(doc, pages, page_w, page_h,
+                         min(doc.pageCount(), max_pages))
+
+
+def _markdown_document(fd: int, page_w: int, theme: str, font: str,
+                       font_size: int) -> tuple:
+    """(QTextDocument, palette): the file parsed, themed and paginated."""
     from PySide6.QtCore import QSizeF
     from PySide6.QtGui import QTextDocument
 
@@ -76,11 +100,7 @@ def markdown_pages(fd: int, name: str, page_w: int, max_pages: int,
     _theme_markdown(doc, palette)
     _label_markdown_images(doc, palette)
     doc.setPageSize(QSizeF(page_w, page_h))
-    count = min(doc.pageCount(), max_pages)
-    info = {"count": count, "chapters": _markdown_headings(doc, page_h, count)}
-    for _n, png in _document_pages(doc, page_w, page_h, count, start,
-                                   palette["bg"], scale):
-        yield info, png
+    return doc, palette
 
 
 def _markdown_headings(doc, page_h: int, count: int) -> list:

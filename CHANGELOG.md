@@ -5,6 +5,19 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **Select and copy text in rendered Markdown and EPUB books**, as in
+  PDFs: drag, double-click a word, Ctrl+A, Ctrl+C, at any zoom. The jail
+  lays the text out again exactly as the pages were painted and sends
+  each word's box (new worker ops `mdtext` and `epubtext`), so the
+  daemon still parses nothing. Wrapped lines copy joined, paragraphs,
+  list items and headings on their own lines, and a table row as one line
+  with tabs between its cells. Plain text, code and org files were
+  already selectable in their text view.
+
 ## 0.2.1 — 2026-11-13
 
 ### Added

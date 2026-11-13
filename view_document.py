@@ -278,10 +278,14 @@ class DocumentViewMixin:
             self._find_page_w = page_w
         else:
             find_bar.hide()
-        # Selecting and copying text, for a PDF: its text layer places every
-        # word. (A book's or an office document's pages have none to ask.)
-        if op == "pdf":
-            self.enable_text_selection(path, page_w)
+        # Selecting and copying text: a PDF's text layer places every word,
+        # and a book or a Markdown file is laid out again in the jail, the
+        # way its pages were, to place them. (An office document's pages
+        # have neither to ask.)
+        self._text_op = {"pdf": "pdftext", "markdown": "mdtext",
+                         "epub": "epubtext"}.get(op)
+        if self._text_op:
+            self.enable_text_selection(path, page_w, self._text_op, extra)
         self.zoomable_pages(path, op, page_w, extra)
         avail = self.screen_avail()
         self._page_size = (

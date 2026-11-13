@@ -250,6 +250,27 @@ def op_pdftext(job, src, fd, out):
                                  job["page_w"], job["max_pages"]))
 
 
+def _reading_text(fn):
+    """An op answering like "pdftext", for pages laid out from text — a
+    Markdown file's or a book's — from the same layout the pages were
+    painted with."""
+    def op(job, src, fd, out):
+        pages = job.get("pages") or []
+        if not isinstance(pages, list):
+            raise RuntimeError("pages must be a list")
+        out.header(1)
+        out.json(fn(
+            fd, pages[:job["max_pages"]], job["page_w"], job["max_pages"],
+            job.get("theme", renderers.DEFAULT_BOOK_THEME),
+            font=job.get("font", ""), font_size=job.get("font_size", 11),
+        ))
+    return op
+
+
+op_mdtext = _reading_text(renderers.markdown_text)
+op_epubtext = _reading_text(renderers.epub_text)
+
+
 def op_pdfoutline(job, src, fd, out):
     # The bookmarks, for the sidebar. A separate op rather than a
     # field on the render's header: the render streams from a
@@ -319,6 +340,8 @@ OPS = {
     "text": op_text,
     "pdfsearch": op_pdfsearch,
     "pdftext": op_pdftext,
+    "mdtext": op_mdtext,
+    "epubtext": op_epubtext,
     "archive": op_archive,
     "epub": op_epub,
     "markdown": op_markdown,

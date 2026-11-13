@@ -49,17 +49,19 @@ just like Quick Look on a multi-file selection.
 - **Find in PDFs and books.** **Ctrl+F** searches the text and highlights
   matches in place; **Enter** / **Shift+Enter** step through them. Phrases
   work, including across line breaks.
-- **Select and copy a PDF's text**, as in Quick Look: drag across the page
-  (the view scrolls when the pointer leaves it), double-click a word, or
-  press **Ctrl+A**; **Ctrl+C** copies. Lines and paragraphs keep their
-  breaks, and the selection also goes to the primary selection, so a
-  middle-click pastes it.
+- **Select and copy text**, as in Quick Look, in PDFs, rendered Markdown
+  and EPUB books: drag across the page (the view scrolls when the pointer
+  leaves it), double-click a word, or press **Ctrl+A**; **Ctrl+C** copies.
+  Lines and paragraphs keep their breaks, a table row copies as one line
+  with tabs between its cells, and the selection also goes to the primary
+  selection, so a middle-click pastes it. Plain text, code, org files and
+  Markdown's code view are ordinary text boxes, selectable as always.
 - **Zoom** with **Ctrl++** (or **Ctrl+=**) and **Ctrl+-**, or **Ctrl** and
   the mouse wheel; **Ctrl+0** goes back to 100%. Images, PDFs and the other
   page views, text and code, folder and archive listings, spreadsheets and
   HTML all zoom, from 25% to 400%. Zoomed-in pages and photos are rendered
   again at their new size, so they stay sharp rather than being stretched,
-  and a PDF's text can still be selected at any zoom. Each file opens at
+  and text can still be selected at any zoom. Each file opens at
   100%.
 - **Contents sidebar.** The **☰** button top left lists a PDF's bookmarks, a
   book's chapters or a Markdown file's headings — nested and with page
@@ -141,8 +143,8 @@ just like Quick Look on a multi-file selection.
 | ← / →           | Previous / next file — pages through the selection if several files were passed, otherwise folder siblings |
 | Enter           | Open the file in its default application  |
 | Ctrl+F          | Find text in a PDF, words or phrases — Enter and Shift+Enter step through matches, Esc closes |
-| Drag / double-click | Select a PDF's text, or one word           |
-| Ctrl+A / Ctrl+C | Select all of a PDF's text / copy the selection |
+| Drag / double-click | Select text (also on PDF, Markdown and book pages), or one word |
+| Ctrl+A / Ctrl+C | Select all the text / copy the selection   |
 | Ctrl++ (Ctrl+=) / Ctrl+- / Ctrl+0 | Zoom in / out / back to 100% — also Ctrl+mouse wheel |
 | Ctrl+Q          | Quit the background daemon entirely       |
 
@@ -305,7 +307,10 @@ now; a cached preview is ~2 ms.
   out from where the lines sit, not from Poppler's blocks, so a list does
   not copy with a blank line between items. The daemon checks every offset
   and box before it uses them (`text_select.py`), and the mouse handling
-  is in `view_selection.py`.
+  is in `view_selection.py`. Rendered Markdown and books answer the same
+  question with `mdtext` and `epubtext`, which lay the text out again in
+  the jail exactly as its pages were painted (same width, theme and font)
+  and read each word's box from that layout (`renderers.document_text`).
 - **Animations** (GIF/APNG) — every frame is decoded in the jail and
   streamed here; playback is a timer cycling pixmaps the daemon already
   holds, so no animation parser runs in this process.

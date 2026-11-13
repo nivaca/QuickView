@@ -161,7 +161,7 @@ class Serve(unittest.TestCase):
             sent |= set(re.findall(r'"op":\s*"(\w+)"', text))
             sent |= set(re.findall(r'\bop="(\w+)"', text))
             sent |= set(re.findall(r'\bop: str = "(\w+)"', text))
-            for table in re.findall(r"_find_op = (\{[^}]*\})", text):
+            for table in re.findall(r"_(?:find|text)_op = (\{[^}]*\})", text):
                 sent |= set(re.findall(r'"(\w+)"', table))
         sent.discard("media")  # the media worker's, not this one's
         self.assertTrue(sent, "found no ops — the pattern needs updating")

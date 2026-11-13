@@ -15,6 +15,8 @@ from .base import (
     OFFICE_MAX_MEMBER_BYTES,
     OFFICE_MAX_THUMB_BYTES,
     PAGE_RATIO,
+    PDF_TEXT_MAX_CHARS,
+    PDF_TEXT_MAX_WORDS,
     _rewound,
 )
 from .pdf import (
@@ -288,6 +290,100 @@ def _document_pages(doc, page_w: int, page_h: int, count: int, start: int,
         page.setText("QuickView:PageCount", str(doc.pageCount()))
         page.setText("QuickView:Scale", "%.4f" % used)
         yield count, _encode(page)
+
+
+def document_text(doc, pages: list, page_w: int, page_h: int,
+                  count: int) -> dict:
+    """The selectable text of some pages of a laid-out QTextDocument.
+
+    The same answer as pdf.page_text — {"pages": [{"page", "text",
+    "words": [[start, end, x, y, w, h, line], ...]}], "engine"} — so the
+    daemon selects over a book or a Markdown file with the code it uses
+    for a PDF. The boxes come from the layout the pages were painted
+    from, in page pixels at page_w, so they sit on the words drawn.
+
+    A line wrapped inside a paragraph is joined to the next with a space,
+    and paragraphs (and table cells, list items, headings) end with a
+    newline, which is how the text reads when copied; the cells of a
+    table row are separated by tabs.
+    """
+    import re
+
+    wanted = sorted({p for p in pages
+                     if isinstance(p, int) and not isinstance(p, bool)
+                     and 0 <= p < count})
+    if not wanted:
+        return {"pages": [], "engine": "layout"}
+    from PySide6.QtGui import QTextCursor
+
+    acc = {p: {"text": [], "len": 0, "words": [], "lines": 0,
+               "block": None, "row": None, "full": False} for p in wanted}
+    top, bottom = wanted[0] * page_h, (wanted[-1] + 1) * page_h
+    layout_of = doc.documentLayout()
+    word_re = re.compile(r"\S+")
+    block = doc.begin()
+    while block.isValid():
+        rect = layout_of.blockBoundingRect(block)
+        if rect.bottom() < top or rect.top() >= bottom:
+            block = block.next()
+            continue
+        layout = block.layout()
+        origin = rect.topLeft()
+        # Cells of one table row are copied on one line, a tab apart, as
+        # a spreadsheet pastes them.
+        row = None
+        table = QTextCursor(block).currentTable()
+        if table is not None:
+            cell = table.cellAt(block.position())
+            row = (table.firstPosition(), cell.row())
+        # An image or other embedded object is one U+FFFC character: a
+        # picture, not a word.
+        text = block.text().replace("\ufffc", " ")
+        for number in range(layout.lineCount()):
+            line = layout.lineAt(number)
+            y = origin.y() + line.y()
+            page = int(y // page_h)
+            a = acc.get(page)
+            if a is None or a["full"]:
+                continue
+            first = line.textStart()
+            found = list(word_re.finditer(text, first, first + line.textLength()))
+            if not found:
+                continue
+            if a["len"]:
+                if a["block"] == block.blockNumber():
+                    sep = " "
+                elif row is not None and a["row"] == row:
+                    sep = "\t"
+                else:
+                    sep = "\n"
+                a["text"].append(sep)
+                a["len"] += 1
+            a["block"], a["row"] = block.blockNumber(), row
+            y_in_page = y - page * page_h
+            height = max(1, round(min(line.height(), page_h - y_in_page)))
+            for k, match in enumerate(found):
+                word = match.group()
+                if (a["len"] + 1 + len(word) > PDF_TEXT_MAX_CHARS
+                        or len(a["words"]) >= PDF_TEXT_MAX_WORDS):
+                    a["full"] = True
+                    break
+                if k:
+                    a["text"].append(" ")
+                    a["len"] += 1
+                x1 = origin.x() + line.cursorToX(match.start())[0]
+                x2 = origin.x() + line.cursorToX(match.end())[0]
+                x1, x2 = min(x1, x2), max(x1, x2)  # right-to-left runs
+                a["words"].append([a["len"], a["len"] + len(word), round(x1),
+                                   round(y_in_page), max(1, round(x2 - x1)),
+                                   height, a["lines"]])
+                a["text"].append(word)
+                a["len"] += len(word)
+            a["lines"] += 1
+        block = block.next()
+    return {"pages": [{"page": p, "text": "".join(acc[p]["text"]),
+                       "words": acc[p]["words"]} for p in wanted],
+            "engine": "layout"}
 
 
 def _office_html(zf, names, page_w: int = 900) -> tuple:

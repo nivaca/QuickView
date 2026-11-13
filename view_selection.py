@@ -7,12 +7,14 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Selecting and copying a PDF's text with the mouse, as Quick Look does.
+"""Selecting and copying the text of a page view with the mouse, as Quick
+Look does: a PDF's, a book's or a rendered Markdown file's.
 
 Drag over the pages to select, double-click a word, Ctrl+A for everything,
 Ctrl+C to copy; a click without a drag clears the selection. The pages are
-pictures, so their text is fetched from the jail (op "pdftext") the first
-time it is needed — a press on a page asks for that page, Select All for
+pictures, so their text is fetched from the jail (op "pdftext", or
+"epubtext" / "mdtext", which lay the text out again as it was painted)
+the first time it is needed — a press on a page asks for that page, Select All for
 all of them in one job — and kept for as long as the document is open.
 The selection logic itself is text_select; this wires it to the view.
 """
@@ -38,7 +40,7 @@ from widgets import (
 
 
 class TextSelectionMixin:
-    """Mouse selection and copying over the page column of a PDF.
+    """Mouse selection and copying over a page column.
 
     Mixed into QuickView, whose page labels (self._pdf_labels), scroll area
     and worker pool it uses; not usable on its own.
@@ -57,6 +59,8 @@ class TextSelectionMixin:
         self._sel_job = None
         self._sel_path = None        # None: no selectable text in this view
         self._sel_page_w = 0
+        self._sel_op = "pdftext"     # the jail's op that places the words
+        self._sel_extra = {}         # and what it lays the text out with
         self._sel_layers = {}        # page -> text_select.PageText
         self._sel_pending = set()    # pages to fetch
         self._sel_waiting = []       # callables run when text arrives
@@ -68,10 +72,16 @@ class TextSelectionMixin:
         self._sel_keep = False       # a double-click's word outlives release
         self._sel_overlays = {}      # page -> SelectionOverlay
 
-    def enable_text_selection(self, path: str, page_w: int):
-        """Make the page column selectable: called once its labels exist."""
+    def enable_text_selection(self, path: str, page_w: int,
+                              op: str = "pdftext", extra: dict = None):
+        """Make the page column selectable: called once its labels exist.
+        op is the worker op that answers with the pages' words; extra, what
+        a book or Markdown file was laid out with (theme, font), so the
+        words are placed in that same layout."""
         self._sel_path = path
         self._sel_page_w = page_w
+        self._sel_op = op
+        self._sel_extra = dict(extra or {})
         for i, label in enumerate(self._pdf_labels):
             label.setProperty("qv_page", i)
             label.setCursor(Qt.IBeamCursor)
@@ -346,7 +356,7 @@ class TextSelectionMixin:
             except (ValueError, TypeError):
                 payload = {}
             if not ok:
-                log.warning("pdf text failed: %s (%s)", self._sel_path, error[:200])
+                log.warning("page text failed: %s (%s)", self._sel_path, error[:200])
             sizes = [(self.page_base(label).width(), self.page_base(label).height())
                      for label in self._pdf_labels]
             got = text_select.parse(payload, sizes)
@@ -365,7 +375,8 @@ class TextSelectionMixin:
 
         state["job"] = self._sel_job = SandboxJob(
             self.pool, self._sel_path,
-            {"op": "pdftext", "pages": pages, "page_w": self._sel_page_w,
+            {**self._sel_extra, "op": self._sel_op, "pages": pages,
+             "page_w": self._sel_page_w,
              "max_pages": SETTINGS["pdf_max_pages"]},
             on_frame, on_done, self,
         )
