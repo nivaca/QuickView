@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.1.7
+Version:        0.1.8
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -136,6 +136,10 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.8-1
+- The release notes and the README credit the fork the same way as the
+  About box:
+
 * Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.7-1
 - The About box credits the fork first:
 
