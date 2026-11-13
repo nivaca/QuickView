@@ -31,6 +31,7 @@ from common import (
 from sandbox import (
     SandboxJob,
 )
+from view_zoom import label_zoom
 from widgets import (
     SelectionOverlay,
 )
@@ -117,8 +118,12 @@ class TextSelectionMixin:
             if dy == 0:
                 break
         _dy, page, p, label = best
-        x = min(max(p.x(), 0), label.width() - 1)
-        y = min(max(p.y(), 0), label.height() - 1)
+        # In the page's own pixels, which the words are placed in; the
+        # label may be zoomed.
+        z = label_zoom(label)
+        base = self.page_base(label)
+        x = min(max(int(p.x() / z), 0), base.width() - 1)
+        y = min(max(int(p.y() / z), 0), base.height() - 1)
         return page, x, y
 
     def _sel_on_press(self, gpos):
@@ -342,7 +347,8 @@ class TextSelectionMixin:
                 payload = {}
             if not ok:
                 log.warning("pdf text failed: %s (%s)", self._sel_path, error[:200])
-            sizes = [(label.width(), label.height()) for label in self._pdf_labels]
+            sizes = [(self.page_base(label).width(), self.page_base(label).height())
+                     for label in self._pdf_labels]
             got = text_select.parse(payload, sizes)
             for page in pages:
                 # A page the worker could not read counts as one with no

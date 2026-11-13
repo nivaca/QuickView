@@ -73,6 +73,15 @@ class SeekSlider(QSlider):
         super().mousePressEvent(event)
 
 
+def _zoom_painter(painter, overlay):
+    """Rectangles are in page pixels; the page under them may be zoomed
+    (its label's "qv_zoom" property, set by view_zoom)."""
+    page = overlay.parentWidget()
+    value = page.property("qv_zoom") if page is not None else None
+    if value and abs(float(value) - 1.0) > 1e-6:
+        painter.scale(float(value), float(value))
+
+
 class MatchOverlay(QWidget):
     """Translucent highlight boxes drawn over one rendered PDF page.
 
@@ -98,6 +107,7 @@ class MatchOverlay(QWidget):
         if not self._rects:
             return
         painter = QPainter(self)
+        _zoom_painter(painter, self)
         for i, (x, y, w, h) in enumerate(self._rects):
             # The match the reader is standing on is opaque enough to find
             # at a glance; the rest are a soft wash so the page stays legible.
@@ -135,6 +145,7 @@ class SelectionOverlay(QWidget):
         if not self._rects:
             return
         painter = QPainter(self)
+        _zoom_painter(painter, self)
         for x, y, w, h in self._rects:
             painter.fillRect(QRect(x, y, w, h), self._colour)
         painter.end()

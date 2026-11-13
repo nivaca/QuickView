@@ -105,12 +105,16 @@ from view_selection import (
 from view_text import (
     TextViewMixin,
 )
+from view_zoom import (
+    ZoomMixin,
+)
 from widgets import (
     TitleBar,
 )
 
 class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
-                TextViewMixin, OfficeViewMixin, TextSelectionMixin, QWidget):
+                TextViewMixin, OfficeViewMixin, TextSelectionMixin, ZoomMixin,
+                QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(
@@ -145,6 +149,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self._pdf_gen = None  # token invalidating in-flight page appends
         self._pdf_labels = []  # one placeholder per page of the open PDF
         self._reset_text_selection()
+        self._init_zoom(QApplication.instance())
         self._pdf_overlays = []  # a MatchOverlay per page, for find results
         self._find_bar = None    # the Ctrl+F row, while a PDF is showing
         self._find_scroll = None  # the page column's QScrollArea
@@ -580,6 +585,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             self._find_job.cancel()
             self._find_job = None
         self._set_nav_shortcuts(True)
+        self._forget_zoom_view()
         while self.content.count():
             w = self.content.takeAt(0).widget()
             if w is not None:
@@ -709,6 +715,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self.disarm_idle_exit()
         path = os.path.abspath(path)
         self.current_path = path
+        self._zoom = 1.0  # each file opens at 100%
         self.clear_content()
         log.info("preview: %s", path)
 

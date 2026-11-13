@@ -22,7 +22,7 @@ from string import Template
 # renderers imports nothing at module level, so this loads no parser here.
 
 from PySide6.QtCore import (
-    Qt, QPoint, QTimer,
+    Qt, QPoint, QSize, QTimer,
 )
 from PySide6.QtGui import (
     QImage, QPixmap, QColor,
@@ -52,6 +52,7 @@ from sandbox import (
 from widgets import (
     MatchOverlay,
 )
+from view_zoom import label_zoom
 
 
 class DocumentViewMixin:
@@ -213,7 +214,7 @@ class DocumentViewMixin:
         QTimer.singleShot(0, apply)  # once the new column has its height
 
     def _pdf_begin_view(self, path: str, total: int, sizes: list,
-                        op: str = "pdf", page_w: int = 0):
+                        op: str = "pdf", page_w: int = 0, extra: dict = None):
         """Swap in the page column, at its full height from the start.
 
         Every page gets a placeholder of its real size before any pixels
@@ -236,14 +237,13 @@ class DocumentViewMixin:
         for w, h in sizes:
             w, h = round(w / ratio), round(h / ratio)
             label = QLabel()
-            label.setFixedSize(w, h)
             # An unfilled page, before its render arrives.
             label.setStyleSheet(f"background: {self.theme['surface_alt']};")
             lay.addWidget(label, 0, Qt.AlignHCenter)
             self._pdf_labels.append(label)
-            overlay = MatchOverlay(label)
-            overlay.setGeometry(0, 0, w, h)
-            self._pdf_overlays.append(overlay)
+            self._pdf_overlays.append(MatchOverlay(label))
+            # Its own size, shown at the zoom (and the overlay with it).
+            self.page_label_sized(label, QSize(w, h))
         lay.addStretch(1)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -282,6 +282,7 @@ class DocumentViewMixin:
         # word. (A book's or an office document's pages have none to ask.)
         if op == "pdf":
             self.enable_text_selection(path, page_w)
+        self.zoomable_pages(path, op, page_w, extra)
         avail = self.screen_avail()
         self._page_size = (
             int(avail.width() * 0.55), int(avail.height() * 0.85)
@@ -599,8 +600,9 @@ class DocumentViewMixin:
             return
         label = self._pdf_labels[page]
         top = label.mapTo(self._page_scroll.widget(), QPoint(0, 0)).y()
-        # Never past the end of the page it belongs to.
-        top += max(0, min(offset, label.height() - 1))
+        # Never past the end of the page it belongs to; the offset is in
+        # the page's own pixels, the label may be zoomed.
+        top += max(0, min(round(offset * label_zoom(label)), label.height() - 1))
         bar = self._page_scroll.verticalScrollBar()
         bar.setValue(max(0, top - 14))  # 14 = the column's top margin
 
@@ -793,8 +795,9 @@ class DocumentViewMixin:
             return
         # First rectangle: a match wrapped over a line break has one per
         # line, and the reader wants to land where it starts.
-        x, y, w, h = rects[0]
         label = self._pdf_labels[page]
+        z = label_zoom(label)  # the rectangles are in page pixels
+        x, y, w, h = (v * z for v in rects[0])
         # Map the match into the scrolled column's coordinates, then ask for
         # it with a generous margin so it lands mid-view rather than jammed
         # against the top edge.
@@ -841,12 +844,9 @@ class DocumentViewMixin:
             ratio = 1.0
         img.setDevicePixelRatio(max(ratio, 1.0))
         size = img.deviceIndependentSize().toSize()
-        if label.size() != size:  # an estimate that missed
-            label.setFixedSize(size)
-            overlay = self._pdf_overlays[i] if i < len(self._pdf_overlays) else None
-            if overlay is not None:
-                overlay.setGeometry(0, 0, size.width(), size.height())
-        label.setPixmap(QPixmap.fromImage(img))
+        if self.page_base(label) != size:  # an estimate that missed
+            self.page_label_sized(label, size)
+        self.page_pixmap(i, label, QPixmap.fromImage(img))
         label.setStyleSheet("")
 
     def _pdf_show_cached(
@@ -866,7 +866,7 @@ class DocumentViewMixin:
             head = cache_read_head(page_key(i))
             sizes.append((head and png_size(head)) or fallback)
         lay = self._pdf_begin_view(
-            path, total, sizes, op=op, page_w=page_w
+            path, total, sizes, op=op, page_w=page_w, extra=extra
         )
         gen = object()
         self._pdf_gen = gen
@@ -962,7 +962,7 @@ class DocumentViewMixin:
                     self._set_toc(path, header_toc, toc_key)
                 state["lay"] = self._pdf_begin_view(
                     path, total, [(img.width(), img.height())] * count,
-                    op=op, page_w=page_w,
+                    op=op, page_w=page_w, extra=extra,
                 )
             cache_write(page_key(page), png)
             self._pdf_fill_page(page, img)

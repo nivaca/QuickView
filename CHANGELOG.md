@@ -5,6 +5,32 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **Zoom.** Ctrl++ (or Ctrl+=) and Ctrl+- zoom in and out, as does the
+  mouse wheel with Ctrl held; Ctrl+0 returns to 100%. The keypad's + - 0
+  work too, and a touchpad's small scrolls add up to a step. The level
+  shows briefly at the bottom of the panel, steps from 25% to 400%, and
+  starts at 100% for each file.
+
+  - Images scroll inside the panel when zoomed in. Once a photo is shown
+    larger than it was decoded, the jail decodes it again at its new size
+    (never past the original), so it is sharp rather than stretched.
+  - PDFs, office documents, books and Markdown scale their pages, keeping
+    the point under the pointer (or the middle of the view) still. The
+    pages on screen are then rendered again at the new resolution, up to
+    4x; pages scrolled away go back to their normal pixels, so a long read
+    at 400% does not pile up page images. Find highlights and the text
+    selection scale with the pages, and selecting still works at any zoom.
+  - Text and code, folder and archive listings, office text and
+    spreadsheets change their font size; HTML pages use the browser's own
+    zoom.
+
+  The level stays when the same file's view is rebuilt, such as an office
+  document's exact layout replacing its quick one.
+
 ## 0.1.9 — 2026-11-13
 
 ### Changed

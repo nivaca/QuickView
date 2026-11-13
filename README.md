@@ -54,6 +54,13 @@ just like Quick Look on a multi-file selection.
   press **Ctrl+A**; **Ctrl+C** copies. Lines and paragraphs keep their
   breaks, and the selection also goes to the primary selection, so a
   middle-click pastes it.
+- **Zoom** with **Ctrl++** (or **Ctrl+=**) and **Ctrl+-**, or **Ctrl** and
+  the mouse wheel; **Ctrl+0** goes back to 100%. Images, PDFs and the other
+  page views, text and code, folder and archive listings, spreadsheets and
+  HTML all zoom, from 25% to 400%. Zoomed-in pages and photos are rendered
+  again at their new size, so they stay sharp rather than being stretched,
+  and a PDF's text can still be selected at any zoom. Each file opens at
+  100%.
 - **Contents sidebar.** The **☰** button top left lists a PDF's bookmarks, a
   book's chapters or a Markdown file's headings — nested and with page
   numbers; clicking one jumps to that heading, not merely to the page it is
@@ -136,6 +143,7 @@ just like Quick Look on a multi-file selection.
 | Ctrl+F          | Find text in a PDF, words or phrases — Enter and Shift+Enter step through matches, Esc closes |
 | Drag / double-click | Select a PDF's text, or one word           |
 | Ctrl+A / Ctrl+C | Select all of a PDF's text / copy the selection |
+| Ctrl++ (Ctrl+=) / Ctrl+- / Ctrl+0 | Zoom in / out / back to 100% — also Ctrl+mouse wheel |
 | Ctrl+Q          | Quit the background daemon entirely       |
 
 ## Syntax highlighting
@@ -734,7 +742,7 @@ before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
   `view_document.py` (PDF, Markdown, EPUB, contents, find), `view_media.py`,
   `view_text.py` (code, HTML, folders, archives) and `view_office.py`,
   and selecting a PDF's text is `view_selection.py` with its logic in
-  `text_select.py`
+  `text_select.py`; zooming, for every view, is `view_zoom.py`
 - `common.py` — settings, file-type tables, the panel stylesheet, logging
   and the disk cache; `sandbox.py` — the bubblewrap jail and the workers
   that run in it; `widgets.py` — the titlebar, seek bar and match overlay

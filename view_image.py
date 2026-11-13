@@ -13,6 +13,7 @@
 """
 
 import os
+import re
 import struct
 
 # What the daemon asks the renderers: which engine the workers will use for
@@ -20,7 +21,7 @@ import struct
 # renderers imports nothing at module level, so this loads no parser here.
 
 from PySide6.QtCore import (
-    Qt, QTimer,
+    QSize, Qt, QTimer,
 )
 from PySide6.QtGui import (
     QImage, QPixmap,
@@ -45,6 +46,12 @@ from common import (
 from sandbox import (
     SandboxJob,
 )
+
+
+def original_size(dims: str):
+    """The original's size from the titlebar's "W×H", or None."""
+    m = re.match(r"\s*(\d+)\s*[×x]\s*(\d+)", dims or "")
+    return QSize(int(m.group(1)), int(m.group(2))) if m else None
 
 
 class ImageViewMixin:
@@ -76,7 +83,7 @@ class ImageViewMixin:
             self._mem_cache.move_to_end(key)
             log.debug("memory cache hit: %s", path)
             pix, dims, _nbytes = hit
-            self._display_image(path, pix, dims)
+            self._display_image(path, pix, dims, hires=True)
             return True
 
         png = cache_read(key)
@@ -184,14 +191,21 @@ class ImageViewMixin:
             and len(self._mem_cache) > 1
         ):
             self._mem_cache.popitem(last=False)
-        self._display_image(path, pix, dims)
+        self._display_image(path, pix, dims, hires=True)
 
-    def _display_image(self, path: str, pix: QPixmap, dims: str):
+    def _display_image(self, path: str, pix: QPixmap, dims: str,
+                       hires: bool = False):
+        """Show a still image. hires: it is the file's own image, decoded
+        to fit, so a zoom past that size can have the jail decode more of
+        its pixels (see view_zoom)."""
         self.clear_content()
         label = QLabel()
         label.setAlignment(Qt.AlignCenter)
         label.setPixmap(pix)
-        self.content.addWidget(label)
+        orig = original_size(dims) if hires else None
+        self.content.addWidget(self.zoomable_image(
+            label, pix.deviceIndependentSize().toSize(),
+            (path, orig) if orig is not None else None))
         self.set_panel_size(pix.width() + 24, pix.height() + 24)
         self.set_title(f"{os.path.basename(path)}  —  {dims}")
         self._prefetch_neighbors()
@@ -301,7 +315,8 @@ class ImageViewMixin:
         pix, _delay = state["frames"][0]
         label.setPixmap(pix)
         self._clear_widgets()
-        self.content.addWidget(label)
+        self.content.addWidget(
+            self.zoomable_image(label, pix.deviceIndependentSize().toSize()))
         self.set_panel_size(pix.width() + 24, pix.height() + 24)
 
         idx = {"i": 0}
