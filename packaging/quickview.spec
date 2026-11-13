@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.1.9
+Version:        0.2.0
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -136,6 +136,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.0-1
+- Zoom
+
 * Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.9-1
 - build-rpm.sh --sign always signs with the project's key:
 
