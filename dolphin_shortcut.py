@@ -8,8 +8,8 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Makes Space open the Quick Look preview in Dolphin, unless the user chose
-otherwise.
+"""Makes Space open the Quick Look preview in Dolphin, while QuickView's
+dolphin_space setting is on (the default).
 
 A Dolphin service menu cannot carry a shortcut: Dolphin takes service-menu
 shortcuts only from the user's own copy of its UI file,
@@ -23,12 +23,16 @@ key leave the key doing nothing, so Selection Mode is moved off Space
 (shortcut="") when — and only when — it still has its default. It stays
 in Dolphin's menu.
 
-Nothing the user chose is overridden:
+Dolphin 26.08 loses service-menu shortcuts: applying its settings, or any
+change to kservicemenurc, re-adds the service-menu actions without them,
+and saving the Keyboard Shortcuts window afterwards writes the loss to
+this file (fixed in Dolphin's master, commit d90c6f46). So a Quick Look
+entry with no shortcut, or one without Space, is given Space again: Space
+is added in front of any other key it has. To keep Quick Look off Space,
+turn the setting off; then this changes nothing at all.
 
-* a Quick Look entry already there, with any shortcut or none, is left
-  as it is (a cleared shortcut is a choice too);
-* if the user put Space on Selection Mode or on any other action, Space is
-  theirs, and nothing is changed.
+Space someone gave to Selection Mode or to any other action stays theirs:
+the file is left as it is.
 
 Only the <ActionProperties> section is edited, as text, so the rest of the
 file stays byte for byte; the result must parse before it is written,
@@ -37,8 +41,9 @@ With no file at all, a minimal one is written: Dolphin treats it as older
 than its own and keeps just its shortcuts, rewriting it in full.
 
 Run by quickview.socket each time it starts (at login, and when installing),
-so it is cheap and changes nothing on a second run. Dolphin reads the file
-when it starts: a window already open sees the change after a restart.
+and by the settings window when it is saved, so it is cheap and changes
+nothing on a second run. Dolphin reads the file when it starts: a window
+already open sees the change after a restart.
 
 Standard library only: this runs before, and without, Qt.
 """
@@ -95,18 +100,26 @@ def plan(text):
     entries = {a.get("name"): a.get("shortcut")
                for a in (section.findall("Action") if section is not None else [])}
 
-    if ACTION in entries:
-        current = entries[ACTION]
-        return None, ("unchanged: Quick Look already has "
-                      + (f"the shortcut {current!r}" if current else "no shortcut, by choice"))
+    current = entries.get(ACTION)
+    if current is not None and uses_space(current):
+        return None, f"unchanged: Quick Look already has the shortcut {current!r}"
     for name, shortcut in entries.items():
-        if shortcut is not None and uses_space(shortcut):
+        if name != ACTION and shortcut is not None and uses_space(shortcut):
             return None, f"left alone: Space belongs to Dolphin's {name!r}, as you set it"
+
+    report = "added: Space opens Quick Look"
+    if ACTION in entries:
+        text, report = restore(text, current)
+        if text is None:
+            return None, report
+        if SELECTION_MODE in entries:
+            return text, report
 
     lines = []
     if SELECTION_MODE not in entries:
         lines.append(f'  <Action name="{SELECTION_MODE}" shortcut=""/>')
-    lines.append(f'  <Action name="{ACTION}" shortcut="Space"/>')
+    if ACTION not in entries:
+        lines.append(f'  <Action name="{ACTION}" shortcut="Space"/>')
     block = "\n".join(lines) + "\n"
 
     if section is not None:
@@ -120,11 +133,44 @@ def plan(text):
         return None, f"left alone: could not find where to add the shortcut in {ui_file()}"
     ET.fromstring(new)  # must still parse — ParseError reaches the caller
     moved = " (Selection Mode moved off Space)" if SELECTION_MODE not in entries else ""
-    return new, "added: Space opens Quick Look" + moved
+    return new, report + moved
 
 
-def ensure(path: str = None) -> str:
+def restore(text, current):
+    """(new text, report) giving Space back to an existing Quick Look entry
+    whose shortcut is empty or lacks Space."""
+    current = (current or "").strip().strip(";").strip()
+    wanted = "Space; " + current if current else "Space"
+    element = re.compile(r'<Action\b[^>]*\bname="' + re.escape(ACTION) + r'"[^>]*>')
+    match = element.search(text, max(text.find("<ActionProperties"), 0))
+    if not match:
+        return None, f"left alone: could not find Quick Look's entry in {ui_file()}"
+    tag = match.group(0)
+    if re.search(r'\sshortcut="[^"]*"', tag):
+        new_tag = re.sub(r'(\sshortcut=)"[^"]*"', lambda m: f'{m.group(1)}"{wanted}"',
+                         tag, count=1)
+    else:
+        new_tag = re.sub(r'(\s*/?>)$', lambda m: f' shortcut="{wanted}"' + m.group(1),
+                         tag, count=1)
+    new = text[:match.start()] + new_tag + text[match.end():]
+    ET.fromstring(new)  # must still parse — ParseError reaches the caller
+    lost = f"it had {current!r}" if current else "Dolphin had dropped it"
+    return new, f"restored: Space opens Quick Look again ({lost})"
+
+
+def enabled() -> bool:
+    """QuickView's dolphin_space setting; on when it cannot be read."""
+    try:
+        import config
+        return bool(config.load(config.CONFIG_FILE).get("dolphin_space", True))
+    except Exception:  # noqa: BLE001 — a broken config must not stop this
+        return True
+
+
+def ensure(path: str = None, on: bool = None) -> str:
     """Apply plan() to the file at path; a one-line report."""
+    if not (enabled() if on is None else on):
+        return "left alone: turned off in QuickView's settings (dolphin_space)"
     path = path or ui_file()
     try:
         with open(path, encoding="utf-8") as fh:

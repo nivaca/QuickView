@@ -5,6 +5,21 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **"Space opens Quick Look" in Dolphin, kept that way.** A setting in
+  QuickView Settings → Previews (`dolphin_space` in `[dolphin]`, on by
+  default). Dolphin 26.08 drops service-menu shortcuts whenever its
+  settings are applied, and can save the loss to its UI file; QuickView
+  used to read an emptied entry as the user's choice and leave it. Now,
+  at each login and when the settings window is saved, Quick Look gets
+  Space back (beside any other key it has), and Selection Mode is moved
+  off Space again if it is back on its default. Space given to another
+  Dolphin action is still left alone. Turned off, QuickView no longer
+  touches Dolphin's shortcuts at all, not even on first install.
+
 ## 0.2.0 — 2026-11-13
 
 ### Added

@@ -295,6 +295,19 @@ class SettingsDialog(QDialog):
         note = QLabel("LibreOffice: " + libreoffice_found())
         note.setWordWrap(True)
         form.addRow("", note)
+
+        self.dolphin_space = QCheckBox("Space opens Quick Look")
+        self._bind("dolphin_space", self.dolphin_space.isChecked,
+                   self.dolphin_space.setChecked)
+        form.addRow("Dolphin:", self.dolphin_space)
+        dolphin_note = QLabel(
+            "Checked at each login and when you save here: if Dolphin has "
+            "lost the shortcut, QuickView gives Space back to Quick Look, "
+            "unless you gave Space to another Dolphin action. Dolphin uses "
+            "it from its next start. Off: QuickView leaves Dolphin's "
+            "shortcuts alone.")
+        dolphin_note.setWordWrap(True)
+        form.addRow("", dolphin_note)
         return page
 
     def _daemon_tab(self) -> QWidget:
@@ -404,8 +417,13 @@ class SettingsDialog(QDialog):
         except OSError as exc:
             self.status.setText(f"Could not save {self.path}: {exc}")
             return False
-        self.status.setText(
-            "Saved. QuickView applies it from the next preview.")
+        message = "Saved. QuickView applies it from the next preview."
+        if self.dolphin_space.isChecked():
+            import dolphin_shortcut
+            report = dolphin_shortcut.ensure(on=True)
+            if not report.startswith("unchanged"):
+                message += " Dolphin shortcut " + report + "."
+        self.status.setText(message)
         return True
 
     def accept(self):

@@ -696,11 +696,20 @@ uses it from its next start.
 - Dolphin binds Space to its own **Selection Mode** by default, and one key
   on two actions does neither, so Selection Mode moves off Space when it
   still has that default. It stays in Dolphin's menu.
-- Nothing you chose is overridden. If Quick Look already has a shortcut —
-  or none, because you cleared it — or if you gave Space to Selection Mode
-  or any other action, the file is left as it is.
-- To use another key, change it in Dolphin: **Menu → Configure → Configure
-  Keyboard Shortcuts… → "Quick Look"**. QuickView will keep your choice.
+- **Dolphin 26.08 loses the shortcut** whenever you press OK or Apply in
+  Configure Dolphin, or a context-menu entry is turned on or off: Space
+  stops opening Quick Look until Dolphin is restarted, and saving
+  Dolphin's Keyboard Shortcuts window in the meantime writes the loss to
+  the file. QuickView puts Space back at each login and when you save its
+  settings window. A Dolphin window already open needs closing and opening
+  again. (Fixed in Dolphin's development version; expected in its next
+  feature release.)
+- Space you gave to Selection Mode or any other action stays yours: the
+  file is left as it is. If you give Quick Look another key too, Space is
+  kept beside it.
+- To keep Quick Look off Space, untick **QuickView Settings → Previews →
+  Dolphin: Space opens Quick Look** (`dolphin_space = false` in
+  `quickview.conf`). QuickView then leaves Dolphin's shortcuts alone.
 - The file as it was before QuickView first changed it is kept next to it,
   as `dolphinui.rc.before-quickview`. To set it up by hand, run
   `python3 /usr/share/quickview/dolphin_shortcut.py` (or `dolphin_shortcut.py`

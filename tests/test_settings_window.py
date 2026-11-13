@@ -20,6 +20,22 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+# Saving with "Space opens Quick Look" on edits Dolphin's UI file: a
+# temporary one, never the user's own. Only while these tests run, as
+# other tests start programs that read it.
+_DATA = tempfile.TemporaryDirectory()
+_SAVED_DATA_HOME = os.environ.get("XDG_DATA_HOME")
+
+
+def setUpModule():
+    os.environ["XDG_DATA_HOME"] = _DATA.name
+
+
+def tearDownModule():
+    if _SAVED_DATA_HOME is None:
+        os.environ.pop("XDG_DATA_HOME", None)
+    else:
+        os.environ["XDG_DATA_HOME"] = _SAVED_DATA_HOME
 
 from PySide6.QtWidgets import QApplication, QDialogButtonBox  # noqa: E402
 
@@ -287,6 +303,32 @@ class ReadingFont(unittest.TestCase):
         before = quickview.QuickView.reading_tag()
         common.SETTINGS["reading_font_size"] = 17
         self.assertNotEqual(quickview.QuickView.reading_tag(), before)
+
+
+class DolphinSpace(TempConfig):
+    def setUp(self):
+        super().setUp()
+        os.environ.pop("QUICKVIEW_DOLPHIN_SPACE", None)
+        self.ui = os.path.join(_DATA.name, "kxmlgui5", "dolphin", "dolphinui.rc")
+        if os.path.exists(self.ui):
+            os.remove(self.ui)
+
+    def test_on_by_default_and_saving_sets_space(self):
+        dialog = settings_dialog.SettingsDialog(self.path)
+        self.assertTrue(dialog.dolphin_space.isChecked())
+        self.assertTrue(dialog.apply())
+        with open(self.ui) as fh:
+            self.assertIn('shortcut="Space"', fh.read())
+        self.assertIn("Dolphin shortcut added", dialog.status.text())
+        self.assertIn("dolphin_space = true", self.read())
+
+    def test_off_is_saved_and_dolphin_is_left_alone(self):
+        dialog = settings_dialog.SettingsDialog(self.path)
+        dialog.dolphin_space.setChecked(False)
+        dialog.apply()
+        self.assertFalse(os.path.exists(self.ui))
+        self.assertIn("dolphin_space = false", self.read())
+        self.assertFalse(settings_dialog.SettingsDialog(self.path).dolphin_space.isChecked())
 
 
 if __name__ == "__main__":

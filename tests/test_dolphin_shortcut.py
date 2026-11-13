@@ -7,7 +7,8 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Space opens Quick Look in Dolphin, unless the user chose otherwise.
+"""Space opens Quick Look in Dolphin, and gets it back when Dolphin loses it,
+unless the user chose otherwise.
 
 Against Dolphin UI files in a temporary folder, never the user's own.
 """
@@ -74,10 +75,11 @@ class Plan(unittest.TestCase):
 
 
 class UsersChoice(unittest.TestCase):
-    def test_an_existing_quick_look_shortcut_is_kept(self):
-        for shortcut in ("Space", "F3", ""):
+    def test_quick_look_with_space_is_kept(self):
+        for shortcut in ("Space", "F3; Space"):
             with self.subTest(shortcut=shortcut):
-                new, report = ds.plan(ui(f'<Action name="{ds.ACTION}" shortcut="{shortcut}"/>'))
+                new, report = ds.plan(ui(f'<Action name="{ds.SELECTION_MODE}" shortcut=""/>',
+                                         f'<Action name="{ds.ACTION}" shortcut="{shortcut}"/>'))
                 self.assertIsNone(new)
                 self.assertIn("unchanged", report)
 
@@ -103,6 +105,51 @@ class UsersChoice(unittest.TestCase):
         self.assertIn("not valid XML", report)
 
 
+class Restore(unittest.TestCase):
+    """Dolphin 26.08 drops service-menu shortcuts and may save the loss."""
+
+    def plan(self, entry):
+        return ds.plan(ui(f'<Action name="{ds.SELECTION_MODE}" shortcut="; "/>',
+                          '<Action name="edit_copy" priority="0"/>', entry))
+
+    def test_an_emptied_shortcut_gets_space_back(self):
+        new, report = self.plan(f'<Action name="{ds.ACTION}" shortcut=""/>')
+        self.assertIn("restored", report)
+        self.assertEqual(shortcuts(new)[ds.ACTION], "Space")
+
+    def test_an_entry_with_no_shortcut_at_all(self):
+        new, _ = self.plan(f'<Action name="{ds.ACTION}"/>')
+        self.assertEqual(shortcuts(new)[ds.ACTION], "Space")
+
+    def test_another_key_is_kept_beside_space(self):
+        new, report = self.plan(f'<Action name="{ds.ACTION}" shortcut="F3"/>')
+        self.assertEqual(shortcuts(new)[ds.ACTION], "Space; F3")
+        self.assertIn("'F3'", report)
+
+    def test_only_that_line_changes(self):
+        old = ui(f'<Action name="{ds.SELECTION_MODE}" shortcut="; "/>',
+                 f'<Action name="{ds.ACTION}" shortcut=""/>')
+        new, _ = ds.plan(old)
+        changed = [(a, b) for a, b in zip(old.splitlines(), new.splitlines()) if a != b]
+        self.assertEqual(changed, [(f'  <Action name="{ds.ACTION}" shortcut=""/>',
+                                    f'  <Action name="{ds.ACTION}" shortcut="Space"/>')])
+
+    def test_selection_mode_back_on_its_default_is_moved_off_again(self):
+        new, report = ds.plan(ui(f'<Action name="{ds.ACTION}" shortcut=""/>'))
+        self.assertEqual(shortcuts(new), {ds.ACTION: "Space", ds.SELECTION_MODE: ""})
+        self.assertIn("Selection Mode moved off Space", report)
+
+    def test_space_on_another_action_still_wins(self):
+        new, report = ds.plan(ui(f'<Action name="{ds.ACTION}" shortcut=""/>',
+                                 '<Action name="reload" shortcut="Space"/>'))
+        self.assertIsNone(new)
+        self.assertIn("'reload'", report)
+
+    def test_a_second_run_changes_nothing(self):
+        new, _ = self.plan(f'<Action name="{ds.ACTION}" shortcut=""/>')
+        self.assertEqual(ds.plan(new), (None, "unchanged: Quick Look already has the shortcut 'Space'"))
+
+
 class Ensure(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()
@@ -119,29 +166,50 @@ class Ensure(unittest.TestCase):
         with open(self.path) as fh:
             return fh.read()
 
+    def test_turned_off_nothing_is_touched(self):
+        self.write(ui(f'<Action name="{ds.ACTION}" shortcut=""/>'))
+        before = self.read()
+        self.assertIn("turned off", ds.ensure(self.path, on=False))
+        self.assertEqual(self.read(), before)
+        self.assertFalse(os.path.exists(self.path + ".before-quickview"))
+
+    def test_the_setting_is_read_from_the_config_file(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        conf = os.path.join(tmp.name, "quickview.conf")
+        with open(conf, "w") as fh:
+            fh.write("[dolphin]\ndolphin_space = false\n")
+        import config
+        saved = config.CONFIG_FILE
+        config.CONFIG_FILE = conf
+        self.addCleanup(setattr, config, "CONFIG_FILE", saved)
+        os.environ.pop("QUICKVIEW_DOLPHIN_SPACE", None)
+        self.assertIn("turned off", ds.ensure(self.path))
+        self.assertFalse(os.path.exists(self.path))
+
     def test_a_missing_file_and_folder_are_created(self):
-        self.assertIn("added", ds.ensure(self.path))
+        self.assertIn("added", ds.ensure(self.path, on=True))
         self.assertEqual(shortcuts(self.read())[ds.ACTION], "Space")
         self.assertFalse(os.path.exists(self.path + ".before-quickview"))
 
     def test_the_original_is_kept_once_and_its_mode_too(self):
         original = ui('<Action name="edit_copy" priority="0"/>')
         self.write(original)
-        ds.ensure(self.path)
+        ds.ensure(self.path, on=True)
         with open(self.path + ".before-quickview") as fh:
             self.assertEqual(fh.read(), original)
         self.assertEqual(stat.S_IMODE(os.stat(self.path).st_mode), 0o640)
 
     def test_a_second_run_changes_nothing(self):
         self.write(ui())
-        ds.ensure(self.path)
+        ds.ensure(self.path, on=True)
         once = self.read()
-        self.assertIn("unchanged", ds.ensure(self.path))
+        self.assertIn("unchanged", ds.ensure(self.path, on=True))
         self.assertEqual(self.read(), once)
 
     def test_no_temporary_file_is_left_behind(self):
         self.write(ui())
-        ds.ensure(self.path)
+        ds.ensure(self.path, on=True)
         self.assertEqual(sorted(os.listdir(os.path.dirname(self.path))),
                          ["dolphinui.rc", "dolphinui.rc.before-quickview"])
 

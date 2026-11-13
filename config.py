@@ -64,6 +64,8 @@ _SETTINGS = {
     "daemon_mode": ("daemon", str, "on-demand", "QUICKVIEW_DAEMON_MODE",
                     None, None),
     "idle_minutes": ("daemon", int, 10, "QUICKVIEW_IDLE_MINUTES", 1, 1440),
+    "dolphin_space": ("dolphin", bool, True, "QUICKVIEW_DOLPHIN_SPACE",
+                      None, None),
 }
 
 DEFAULT_FILE = """\
@@ -168,6 +170,14 @@ daemon_mode = on-demand
 
 # on-demand only: how long to wait, with no preview open, before exiting.
 idle_minutes = 10
+
+[dolphin]
+# Whether Space opens Quick Look in Dolphin. When true, QuickView checks
+# Dolphin's shortcuts at each login and gives Space back to Quick Look if
+# it was lost (Dolphin 26.08 drops service-menu shortcuts whenever its
+# settings are applied). Space is never taken from another Dolphin action
+# you gave it to. When false, QuickView leaves Dolphin's shortcuts alone.
+dolphin_space = true
 """
 
 
@@ -191,6 +201,11 @@ _CHOICES = {
     # accident.
     "office_engine": ("libreoffice", "builtin"),
 }
+
+
+# How a yes/no setting may be written; anything else keeps the default.
+_BOOLS = {"true": True, "yes": True, "on": True, "1": True,
+          "false": False, "no": False, "off": False, "0": False}
 
 
 def _clamp(value, low, high):
@@ -232,7 +247,9 @@ def load(path: str = CONFIG_FILE) -> dict:
             out[name] = default
             continue
         raw = raw.strip()
-        if kind is int:
+        if kind is bool:
+            out[name] = _BOOLS.get(raw.lower(), default)
+        elif kind is int:
             try:
                 out[name] = _clamp(int(raw), low, high)
             except ValueError:
@@ -271,6 +288,8 @@ def write_default_if_missing(path: str = CONFIG_FILE) -> bool:
 
 def format_value(name: str, value) -> str:
     """How a setting is written in the file."""
+    if isinstance(value, bool):
+        return "true" if value else "false"
     return str(value).strip()
 
 

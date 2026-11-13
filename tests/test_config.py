@@ -54,6 +54,14 @@ class Loading(unittest.TestCase):
         self.assertEqual(got["code_style"], "dracula")
         self.assertEqual(got["pdf_max_pages"], 7)
 
+    def test_yes_and_no(self):
+        for raw, want in (("false", False), ("No", False), ("off", False),
+                          ("0", False), ("yes", True), ("maybe", True)):
+            with self.subTest(raw=raw):
+                self.write(f"[dolphin]\ndolphin_space = {raw}\n")
+                self.assertIs(config.load(self.path)["dolphin_space"], want)
+        self.assertEqual(config.format_value("dolphin_space", False), "false")
+
     def test_a_setting_with_a_fixed_list_rejects_anything_else(self):
         self.write("[preview]\nbook_theme = gruvbox-dark\n")
         self.assertEqual(config.load(self.path)["book_theme"], "gruvbox-dark")
