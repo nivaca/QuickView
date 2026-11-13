@@ -14,8 +14,10 @@
 #   packaging/build-rpm.sh [--sign[=KEY]]
 #
 # --sign signs both RPMs with OpenPGP, so dnf can check where they came
-# from: with KEY (an ID, email or fingerprint) or else the first secret
-# key gpg holds. The public key is exported next to them as
+# from, with the project's signing key, SIGNING_KEY below (the same on all
+# the author's machines; a copy of its public key is in
+# packaging/RPM-GPG-KEY-quickview). --sign=KEY, or $SIGNING_KEY, names
+# another key for an exceptional build. The public key is exported next to them as
 # build/rpm/RPM-GPG-KEY-quickview, for people to import before installing
 # (sudo rpm --import RPM-GPG-KEY-quickview). gpg asks for the key's
 # passphrase as usual. Needs rpm-sign; RPMSIGN names another rpmsign.
@@ -29,6 +31,8 @@
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
+# The project's signing key (Nicolas Vaughan, RPM signing, ed25519, 2026)
+SIGNING_KEY="${SIGNING_KEY:-81870643CA221AF90C30554EBE6832CD35994948}"
 SPEC="$DIR/packaging/quickview.spec"
 TOP="$DIR/build/rpm"
 RPMSIGN="${RPMSIGN:-rpmsign}"
@@ -39,7 +43,7 @@ SIGN=0
 KEY=""
 for arg in "$@"; do
     case "$arg" in
-        --sign) SIGN=1 ;;
+        --sign) SIGN=1; KEY="$SIGNING_KEY" ;;
         --sign=*) SIGN=1; KEY="${arg#--sign=}"
                   [ -n "$KEY" ] || die "--sign= needs a key" ;;
         -h|--help)  # the comment block after the licence, as help
@@ -95,6 +99,14 @@ if [ "$SIGN" = 1 ]; then
     "$RPMSIGN" --define "_gpg_name $FPR" \
         ${GNUPGHOME:+--define "_gpg_path $GNUPGHOME"} --addsign "${RPMS[@]}"
     gpg --batch --armor --export "$FPR" > "$TOP/RPM-GPG-KEY-quickview"
+    # The key published with the RPMs must be the project's, the one in
+    # packaging/ (unless another was asked for).
+    if [ "$KEY" = "$SIGNING_KEY" ] && [ -f "$DIR/packaging/RPM-GPG-KEY-quickview" ]; then
+        shipped="$(gpg --batch --with-colons --show-keys "$DIR/packaging/RPM-GPG-KEY-quickview" |
+            awk -F: '$1 == "fpr" { print $10; exit }')"
+        [ "$shipped" = "$FPR" ] ||
+            die "packaging/RPM-GPG-KEY-quickview is not the key that signed ($FPR)"
+    fi
     # Prove it the way a user's dnf will: in a keyring of its own, holding
     # only the exported key, every package must verify. That checks the
     # signatures and that the key file published with them is the right
