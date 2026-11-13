@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.2.0
+Version:        0.2.1
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -136,6 +136,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.1-1
+- "Space opens Quick Look" in Dolphin, kept that way
+
 * Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.0-1
 - Zoom
 
