@@ -60,11 +60,19 @@ class Options(unittest.TestCase):
 
     def test_no_key_says_how_to_make_one(self):
         # An rpmsign that exists, so the key check is what fails; it would
-        # never run, as nothing gets that far.
+        # never run, as nothing gets that far. A plain --sign asks for the
+        # project's key, which the empty test keyring does not hold.
         code, out = self.run_script("--sign", RPMSIGN="/bin/true")
         self.assertEqual(code, 1)
-        self.assertIn("no secret key in gpg", out)
+        self.assertIn("no secret key matching "
+                      "81870643CA221AF90C30554EBE6832CD35994948", out)
         self.assertIn("gpg --quick-generate-key", out)
+
+    def test_signing_key_names_another_key(self):
+        code, out = self.run_script("--sign", RPMSIGN="/bin/true",
+                                    SIGNING_KEY="nobody@example.invalid")
+        self.assertEqual(code, 1)
+        self.assertIn("no secret key matching nobody@example.invalid", out)
 
     def test_an_unknown_key_is_named(self):
         code, out = self.run_script("--sign=nobody@example.invalid",
