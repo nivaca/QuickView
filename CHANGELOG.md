@@ -5,7 +5,7 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
-## Unreleased
+## 0.1.9 — 2026-11-13
 
 ### Changed
 
