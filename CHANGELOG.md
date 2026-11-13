@@ -5,6 +5,15 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **`build-rpm.sh --sign` always signs with the project's key:** the
+  same key as in `packaging/RPM-GPG-KEY-quickview`, instead of the first
+  secret key gpg holds. The script stops if the key that signed is not
+  the one in that file.
+
 ## 0.1.8 — 2026-11-12
 
 ### Changed
