@@ -5,6 +5,14 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **Also on Codeberg.** The repository and every release, from 0.1.0
+  on, are also at <https://codeberg.org/nivaca/QuickView>, and each new
+  release is published on both GitHub and Codeberg.
+
 ## 0.2.5 — 2026-11-14
 
 ### Changed

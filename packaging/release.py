@@ -16,9 +16,9 @@ What is released is what CHANGELOG.md lists under "## Unreleased". In
 order, stopping at the first thing that fails:
 
 1. Checks, changing nothing: on main, clean, in step with origin; VERSION
-   new and higher than the spec's; something under Unreleased; gh and
-   copr-cli logged in; rpmsign present; the signing key usable; the tests
-   and the lint passing.
+   new and higher than the spec's; something under Unreleased; gh, tea
+   and copr-cli logged in; rpmsign present; the signing key usable; the
+   tests and the lint passing.
 2. Bumps packaging/quickview.spec (Version, Release 1, a %changelog entry
    made from the Unreleased headlines) and renames "Unreleased" to
    "VERSION — date"; commits "Release VERSION" and tags vVERSION, locally.
@@ -27,7 +27,8 @@ order, stopping at the first thing that fails:
    another key with the same name. gpg asks for its passphrase.
    Up to here nothing has left this machine; if this fails, the script
    says how to undo the local commit and tag.
-4. Pushes main and the tag; publishes the GitHub release with both RPMs
+4. Pushes main and the tag (origin pushes to GitHub and Codeberg);
+   publishes the release on GitHub and on Codeberg, each with both RPMs
    and the key, and notes made from the changelog, with checksums.
 5. Downloads the release back and checks its signatures against its own
    key file, the way a user's dnf would.
@@ -55,6 +56,8 @@ CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
 VERSION_FILE = os.path.join(ROOT, "version.py")
 KEY_FILE = os.path.join(ROOT, "packaging", "RPM-GPG-KEY-quickview")
 GITHUB_REPO = "nivaca/QuickView"
+CODEBERG_REPO = "nivaca/QuickView"
+TEA_LOGIN = "codeberg"      # (the login of tea for codeberg.org)
 COPR_PROJECT = "nivaca/quickview"
 AUTHOR = "Nicolas Vaughan <nivaca@fastmail.com>"
 UNRELEASED = "## Unreleased"
@@ -229,7 +232,8 @@ def python_for_tests() -> str:
 
 def preflight(version: str, dry_run: bool) -> dict:
     say("== Checks")
-    for tool, hint in (("git", "git"), ("gh", "gh"), ("rpmbuild", "rpm-build"),
+    for tool, hint in (("git", "git"), ("gh", "gh"), ("tea", "tea"),
+                       ("rpmbuild", "rpm-build"),
                        ("rpmspec", "rpm-build"), ("rpmsign", "rpm-sign"),
                        ("rpmkeys", "rpm"), ("gpg", "gnupg2"),
                        ("copr-cli", "copr-cli"), ("dnf", "dnf")):
@@ -264,6 +268,9 @@ def preflight(version: str, dry_run: bool) -> dict:
     if not lines:
         raise ReleaseError("no bullets under \"## Unreleased\"")
     run(["gh", "auth", "status"], capture=True)
+    logins = run(["tea", "login", "list", "--output", "simple"], capture=True)
+    if not any(line.split()[:1] == [TEA_LOGIN] for line in logins.splitlines()):
+        raise ReleaseError(f"tea has no login \"{TEA_LOGIN}\" (tea login add)")
     owner = COPR_PROJECT.split("/")[0]
     if run(["copr-cli", "whoami"], capture=True) != owner:
         raise ReleaseError(f"copr-cli is not logged in as {owner}")
@@ -322,6 +329,26 @@ def verify_download(version: str, files: dict):
             say(f"   {name}: signature OK, checksum matches")
 
 
+def codeberg(version: str, notes: str, paths: list):
+    """The release on Codeberg, as on GitHub: the same title, notes and
+    files.  (tea runs outside the repository, which it would otherwise
+    read its remote from.)"""
+    args = ["tea", "releases", "create", "--login", TEA_LOGIN,
+            "--repo", CODEBERG_REPO, "--tag", f"v{version}",
+            "--title", f"QuickView {version}", "--note-file", notes]
+    for path in paths:
+        args += ["--asset", os.path.abspath(path)]
+    with tempfile.TemporaryDirectory() as away:
+        result = subprocess.run(args, cwd=away, capture_output=True,
+                                text=True)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout or "").strip()
+        raise ReleaseError("the Codeberg release failed (the GitHub one is "
+                           "out; make it by hand with tea releases create)"
+                           + (f":\n{detail[-1500:]}" if detail else ""))
+    say(f"   https://codeberg.org/{CODEBERG_REPO}/releases/tag/v{version}")
+
+
 def copr(version: str, srpm: str):
     say(f"== Building on Copr ({COPR_PROJECT})")
     run(["copr-cli", "build", COPR_PROJECT, srpm])
@@ -346,7 +373,7 @@ def copr(version: str, srpm: str):
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Release QuickView: changelog, tag, signed RPMs, "
-                    "GitHub release and Copr build.")
+                    "GitHub and Codeberg releases and Copr build.")
     parser.add_argument("version", help="the new version, e.g. 0.1.3")
     parser.add_argument("--dry-run", action="store_true",
                         help="check everything and show what would be "
@@ -410,13 +437,16 @@ def main() -> int:
                        "-R", GITHUB_REPO, "--title", f"QuickView {version}",
                        "--notes-file", notes, *built["paths"], KEY_FILE],
                       capture=True)
+            say(f"   {url}")
+            codeberg(version, notes, built["paths"] + [KEY_FILE])
         finally:
             os.unlink(notes)
-        say(f"   {url}")
         verify_download(version, built["files"])
         srpm = next(p for p in built["paths"] if p.endswith(".src.rpm"))
         copr(version, srpm)
-        say(f"\nReleased {version}: GitHub ({url}) and Copr ({COPR_PROJECT}).")
+        say(f"\nReleased {version}: GitHub ({url}), Codeberg "
+            f"(https://codeberg.org/{CODEBERG_REPO}/releases/tag/v{version}) "
+            f"and Copr ({COPR_PROJECT}).")
         return 0
     except ReleaseError as exc:
         say(f"\nrelease: {exc}")

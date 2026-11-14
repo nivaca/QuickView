@@ -649,8 +649,8 @@ only enables the socket, and the launcher starts it on your first preview.
 Space then opens the preview in Dolphin — see [Space in Dolphin](#space-in-dolphin)
 below; restart Dolphin if it was already open.
 
-The RPMs attached to the [GitHub releases](https://github.com/nivaca/QuickView/releases)
-are signed too, from 0.1.4 on with Nicolas Vaughan's key
+The RPMs attached to the releases, on [GitHub](https://github.com/nivaca/QuickView/releases)
+and on [Codeberg](https://codeberg.org/nivaca/QuickView/releases), are signed too, from 0.1.4 on with Nicolas Vaughan's key
 `8187 0643 CA22 1AF9 0C30  554E BE68 32CD 3599 4948` (0.1.2 and 0.1.3 were
 signed with an earlier key, `236E F043 AB7A 4434 A05C  A4EC B554 9099 FC0D 6464`).
 The public key is in
@@ -666,7 +666,7 @@ sudo dnf install ./quickview-0.1.4-1.fc45.x86_64.rpm
 ### Any distribution: from a checkout
 
 ```bash
-git clone https://github.com/nivaca/QuickView.git
+git clone https://github.com/nivaca/QuickView.git   # or https://codeberg.org/nivaca/QuickView.git
 cd QuickView
 ./install.sh
 ```
