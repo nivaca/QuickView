@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.2.3
+Version:        0.2.4
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -140,6 +140,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Sat Nov 14 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.4-1
+- Python 3.13 or newer is required
+
 * Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.3-1
 - The RPM names its author
 
