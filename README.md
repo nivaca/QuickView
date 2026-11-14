@@ -586,7 +586,7 @@ of this by itself; the list below is for `install.sh`.
 - **bubblewrap** (`bwrap`) — mandatory, not optional: every parser runs
   inside the jail it provides. `pacman -S bubblewrap`,
   `apt install bubblewrap`, `dnf install bubblewrap`.
-- **Python 3.13+**. `install.sh` creates a virtualenv in `.venv/`. The
+- **Python 3.15+**. `install.sh` creates a virtualenv in `.venv/`. The
   virtualenv is made with `--system-site-packages`, so a PySide6 your
   distribution already ships (6.4+) is used as-is and nothing is downloaded;
   only when there is no usable system copy does it pip-install a private

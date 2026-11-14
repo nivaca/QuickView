@@ -56,11 +56,11 @@ if [ ! -x "$PY" ] || [ -n "${REPAIR_VENV:-}" ]; then
     SYS_PY=/usr/bin/python3
     [ -x "$SYS_PY" ] || SYS_PY="$(command -v python3 || true)"
     if [ -z "$SYS_PY" ]; then
-        echo "quickview: no python3 found — install Python 3.13 or newer." >&2
+        echo "quickview: no python3 found — install Python 3.15 or newer." >&2
         exit 1
     fi
-    if ! "$SYS_PY" -c 'import sys; sys.exit(sys.version_info < (3, 13))'; then
-        echo "quickview: Python 3.13 or newer is required ($SYS_PY is older)." >&2
+    if ! "$SYS_PY" -c 'import sys; sys.exit(sys.version_info < (3, 15))'; then
+        echo "quickview: Python 3.15 or newer is required ($SYS_PY is older)." >&2
         exit 1
     fi
     [ -n "${REPAIR_VENV:-}" ] ||
