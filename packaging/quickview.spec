@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.2.2
+Version:        0.2.3
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -140,6 +140,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.3-1
+- The RPM names its author
+
 * Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.2-1
 - Select and copy text in rendered Markdown and EPUB books
 
