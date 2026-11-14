@@ -11,7 +11,7 @@ jobs:
       fail-fast: false
       matrix:
         # The oldest Python install.sh accepts, and the newest.
-        python: ["3.10", "3.14"]
+        python: ["3.13", "3.14"]
     env:
       QT_QPA_PLATFORM: offscreen
     steps:

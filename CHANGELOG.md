@@ -5,6 +5,14 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **Python 3.13 or newer is required**, instead of 3.10: `install.sh`
+  checks for it, and the RPM requires it (every supported Fedora has a
+  newer one).
+
 ## 0.2.3 — 2026-11-13
 
 ### Changed

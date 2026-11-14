@@ -18,8 +18,9 @@ exposing those would turn a config file into a way to defeat the sandbox's
 limits, so they stay in the code.
 
 INI rather than TOML because tomllib is Python 3.11 and this project
-supports 3.10. Precedence is environment variable, then file, then default:
-the env var stays useful for trying a setting without editing anything.
+supported 3.10 when it was written. Precedence is environment variable,
+then file, then default: the env var stays useful for trying a setting
+without editing anything.
 
 Read at startup, and again whenever the file changes: the daemon watches
 it (QuickView.watch_settings), so a saved edit applies from the next

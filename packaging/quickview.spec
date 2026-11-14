@@ -31,7 +31,7 @@ BuildRequires:  rust
 BuildRequires:  systemd-rpm-macros
 BuildRequires:  desktop-file-utils
 
-Requires:       python3
+Requires:       python3 >= 3.13
 Requires:       python3-pyside6
 Requires:       python3-pygments
 # Every parser runs in a bubblewrap jail; without it nothing is previewed.
