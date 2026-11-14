@@ -20,6 +20,10 @@ Summary:        Quick Look style file previewer for KDE Plasma
 
 License:        GPL-3.0-or-later
 URL:            https://github.com/nivaca/QuickView
+# Shown by rpm -qi and dnf info; set here so Copr's own defaults
+# ("Fedora Copr - user nivaca", no packager) do not replace them.
+Packager:       Nicolas Vaughan <nivaca@fastmail.com>
+Vendor:         Nicolas Vaughan
 Source0:        %{name}-%{version}.tar.gz
 
 BuildRequires:  python3-devel

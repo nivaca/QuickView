@@ -5,6 +5,14 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **The RPM names its author.** `rpm -qi quickview` and `dnf info
+  quickview` show Nicolas Vaughan as Packager and Vendor, instead of
+  Copr's "Fedora Copr - user nivaca" and no packager.
+
 ## 0.2.2 — 2026-11-13
 
 ### Added
