@@ -3,6 +3,7 @@ name: tests
 on:
   push:
   pull_request:
+  workflow_dispatch:      # (and by hand, from the Actions tab)
 
 jobs:
   unittest:
@@ -10,7 +11,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The oldest Python install.sh accepts, and the newest.
+        # The oldest Python install.sh accepts (3.15), which is also the
+        # newest for now; add newer ones here as they come out.
         python: ["3.15"]
     env:
       QT_QPA_PLATFORM: offscreen
