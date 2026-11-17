@@ -123,7 +123,7 @@ packaging/release.py 0.1.3             # the release
 1. Bump the version and add a changelog entry in =packaging/quickview.spec=:
    #+begin_src sh
    rpmdev-bumpspec -n 0.1.2 -c "Short description of the change" \
-       -u "Nicolas Vaughan <nivaca@fastmail.com>" packaging/quickview.spec
+       -u "Nicolas Vaughan <nicolasvaughan@proton.me>" packaging/quickview.spec
    #+end_src
    - =-n VERSION= sets =Version:= and resets =Release:= to 1.
    - For a packaging-only fix with the same upstream version, leave out

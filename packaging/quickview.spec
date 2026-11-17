@@ -1,5 +1,5 @@
 # QuickView — a Quick Look style file previewer for KDE Plasma.
-# Copyright (C) 2026 Nicolas Vaughan <nivaca@fastmail.com>
+# Copyright (C) 2026 Nicolas Vaughan <nicolasvaughan@proton.me>
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -22,7 +22,7 @@ License:        GPL-3.0-or-later
 URL:            https://github.com/nivaca/QuickView
 # Shown by rpm -qi and dnf info; set here so Copr's own defaults
 # ("Fedora Copr - user nivaca", no packager) do not replace them.
-Packager:       Nicolas Vaughan <nivaca@fastmail.com>
+Packager:       Nicolas Vaughan <nicolasvaughan@proton.me>
 Vendor:         Nicolas Vaughan
 Source0:        %{name}-%{version}.tar.gz
 
@@ -140,59 +140,59 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
-* Sat Nov 14 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.5-1
+* Sat Nov 14 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.5-1
 - Python 3.15 or newer is required
 
-* Sat Nov 14 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.4-1
+* Sat Nov 14 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.4-1
 - Python 3.13 or newer is required
 
-* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.3-1
+* Fri Nov 13 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.3-1
 - The RPM names its author
 
-* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.2-1
+* Fri Nov 13 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.2-1
 - Select and copy text in rendered Markdown and EPUB books
 
-* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.1-1
+* Fri Nov 13 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.1-1
 - "Space opens Quick Look" in Dolphin, kept that way
 
-* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.2.0-1
+* Fri Nov 13 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.0-1
 - Zoom
 
-* Fri Nov 13 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.9-1
+* Fri Nov 13 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.9-1
 - build-rpm.sh --sign always signs with the project's key:
 
-* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.8-1
+* Thu Nov 12 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.8-1
 - The release notes and the README credit the fork the same way as the
   About box:
 
-* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.7-1
+* Thu Nov 12 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.7-1
 - The About box credits the fork first:
 
-* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.6-1
+* Thu Nov 12 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.6-1
 - An About button in the settings window
 
-* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.5-1
+* Thu Nov 12 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.5-1
 - Upgrading the RPM restarts a running daemon
 
-* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.4-1
+* Thu Nov 12 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.4-1
 - A PDF's text can be selected and copied, as in Quick Look
 - A new signing key
 
-* Wed Nov 11 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.3-1
+* Wed Nov 11 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.3-1
 - Space opens Quick Look in Dolphin without setting it up
 - packaging/release.py VERSION makes a whole release
 - The release RPMs are signed
 
-* Wed Nov 11 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.2-1
+* Wed Nov 11 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.2-1
 - Optional OpenPGP signing in build-rpm.sh (--sign)
 - A worker job's queued error no longer outlives the job
 - Install instructions lead with the Copr repository
 
-* Tue Nov 10 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.1-1
+* Tue Nov 10 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.1-1
 - The launcher starts quickview.socket on the first preview after
   installing, so no logout is needed
 - GPL-3 notices in the launcher, the systemd units and the preset
 
-* Tue Nov 10 2026 Nicolas Vaughan <nivaca@fastmail.com> - 0.1.0-1
+* Tue Nov 10 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.1.0-1
 - First package: runs on the system's Python, PySide6 and Pygments, with
   no virtualenv; socket-activated user units enabled by preset

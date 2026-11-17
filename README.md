@@ -16,7 +16,7 @@ Multi-select works too: select **several files**, trigger QuickView, and
 just like Quick Look on a multi-file selection.
 
 > **About this fork.** This is [nivaca/QuickView][fork], by
-> **Nicolas Vaughan** (<nivaca@fastmail.com>), forked from the
+> **Nicolas Vaughan** (<nicolasvaughan@proton.me>), forked from the
 > [QuickView app by Mustapha Alioglou][upstream]. It adds support for the
 > **Flathub LibreOffice**, fixes a bug that could leave the panel hanging,
 > splits the daemon into smaller modules and hardens the installer. See
@@ -903,7 +903,7 @@ compiled client, the bubblewrap sandbox and its worker pool, every
 renderer, the themes and the cache — everything in the
 [changelog](CHANGELOG.md) up to and including its 2026-10-07 entry.
 
-**Nicolas Vaughan** (<nivaca@fastmail.com>) maintains this fork,
+**Nicolas Vaughan** (<nicolasvaughan@proton.me>) maintains this fork,
 [nivaca/QuickView][fork]: reviewing the code,
 reproducing each bug before fixing it, and checking every change against
 the test suite and a running daemon. The [changelog](CHANGELOG.md)

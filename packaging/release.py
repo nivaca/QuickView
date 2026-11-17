@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # QuickView — a Quick Look style file previewer for KDE Plasma.
-# Copyright (C) 2026 Nicolas Vaughan <nivaca@fastmail.com>
+# Copyright (C) 2026 Nicolas Vaughan <nicolasvaughan@proton.me>
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -59,7 +59,7 @@ GITHUB_REPO = "nivaca/QuickView"
 CODEBERG_REPO = "nivaca/QuickView"
 TEA_LOGIN = "codeberg"      # (the login of tea for codeberg.org)
 COPR_PROJECT = "nivaca/quickview"
-AUTHOR = "Nicolas Vaughan <nivaca@fastmail.com>"
+AUTHOR = "Nicolas Vaughan <nicolasvaughan@proton.me>"
 UNRELEASED = "## Unreleased"
 
 

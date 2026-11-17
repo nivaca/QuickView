@@ -444,7 +444,7 @@ The entry below — the package needs no logout after installing — and:
 
 The first changes made in [nivaca/QuickView][fork], a fork of
 [MustaphaAlioglou/QuickView][upstream] maintained by Nicolas Vaughan
-(<nivaca@fastmail.com>): reviewing the code, reproducing each
+(<nicolasvaughan@proton.me>): reviewing the code, reproducing each
 bug before fixing it, and checking every change against the test suite
 and a running daemon. Everything up to the 2026-10-07 entry below is
 Mustapha Alioglou's original work.

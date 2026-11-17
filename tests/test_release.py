@@ -1,5 +1,5 @@
 # QuickView — a Quick Look style file previewer for KDE Plasma.
-# Copyright (C) 2026 Nicolas Vaughan <nivaca@fastmail.com>
+# Copyright (C) 2026 Nicolas Vaughan <nicolasvaughan@proton.me>
 #
 # This program is free software: you can redistribute it and/or modify it
 # under the terms of the GNU General Public License as published by the
@@ -101,7 +101,7 @@ class Spec(unittest.TestCase):
         self.assertRegex(spec, r"(?m)^Release:\s+1%\{\?dist\}$")
         entry = spec.split("%changelog\n", 1)[1]
         self.assertTrue(entry.startswith(
-            "* Thu Nov 12 2026 Nicolas Vaughan <nivaca@fastmail.com> - 9.8.7-1\n"
+            "* Thu Nov 12 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 9.8.7-1\n"
             "- A new thing\n"))
         # The older entries are all still there, after the new one.
         self.assertIn(original.split("%changelog\n", 1)[1], entry)
