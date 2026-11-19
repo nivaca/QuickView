@@ -268,7 +268,10 @@ def cache_key(
         raw += f"\0{variant}"
     # The .png suffix is part of an opaque key, not a claim about the
     # contents: an image entry is JPEG whenever it has no alpha.
-    return hashlib.sha256(raw.encode()).hexdigest() + ".png"
+    # surrogateescape: a file name that is not UTF-8 reaches here with its
+    # odd bytes kept as surrogates (ipc.decode_request), and is as good a
+    # key as any other.
+    return hashlib.sha256(raw.encode("utf-8", "surrogateescape")).hexdigest() + ".png"
 
 
 # The panel's own stylesheet. A Template rather than a literal so both

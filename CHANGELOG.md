@@ -44,6 +44,9 @@ project has no version tags yet, so entries are dated.
 
 ### Fixed
 
+- **File names that are not UTF-8 are previewed** (a Latin-1
+  `café.png`, say). The cache key encoded the name strictly and raised,
+  so the panel never appeared.
 - **A named pipe no longer freezes QuickView.** A FIFO whose name
   ended in .txt, .zip, .md and so on was routed by its name and opened
   for reading, which waits for a writer, on the daemon's main thread,

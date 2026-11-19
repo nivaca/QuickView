@@ -110,5 +110,22 @@ class NotARegularFile(unittest.TestCase):
         self.assertFalse(w.is_pdf(self.fifo("d.ai")))
 
 
+class NotUtf8(unittest.TestCase):
+    def test_a_latin1_name_is_previewed(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        raw = os.path.join(os.fsencode(tmp.name), b"caf\xe9.txt")
+        with open(raw, "wb") as fh:
+            fh.write(b"hello")
+        path = os.fsdecode(raw)  # what ipc.decode_request hands on
+        st = os.stat(path)
+        self.assertNotEqual(common.cache_key(path, st, 1, 1),
+                            common.cache_key(path.replace("\udce9", "e"), st, 1, 1))
+        w = quickview.QuickView()
+        self.addCleanup(w.deleteLater)
+        w.show_files([path])  # raised UnicodeEncodeError before
+        self.assertEqual(w.current_path, path)
+
+
 if __name__ == "__main__":
     unittest.main()
