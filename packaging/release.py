@@ -28,10 +28,11 @@ order, stopping at the first thing that fails:
    Up to here nothing has left this machine; if this fails, the script
    says how to undo the local commit and tag.
 4. Pushes main and the tag (origin pushes to GitHub and Codeberg);
-   publishes the release on GitHub and on Codeberg, each with both RPMs
-   and the key, and notes made from the changelog, with checksums.
-5. Downloads the release back and checks its signatures against its own
-   key file, the way a user's dnf would.
+   publishes the release on GitHub and on Codeberg, each with both RPMs,
+   the Zip bundle (dist/quickview-VERSION.zip) and the key, and notes
+   made from the changelog, with checksums.
+5. Downloads the release back and checks its checksums, and the RPMs'
+   signatures against its own key file, the way a user's dnf would.
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
 
@@ -140,9 +141,15 @@ def spaced_fingerprint(fpr: str) -> str:
 def release_notes(version: str, previous: str, section: str,
                   files: dict, fpr: str) -> str:
     """The GitHub release's text. files maps each RPM's name to its
-    SHA-256; the first one ending in .x86_64.rpm is the one to install."""
+    SHA-256; the first one ending in .x86_64.rpm is the one to install,
+    and the .zip, if there is one, the bundle for other distributions."""
     rpm = next(name for name in files if name.endswith(".x86_64.rpm"))
     srpm = next(name for name in files if name.endswith(".src.rpm"))
+    bundle = next((name for name in files if name.endswith(".zip")), None)
+    anywhere = (f"download `{bundle}`, unzip it, and run `./install.sh` in "
+                f"the `{bundle[:-4]}` folder (or clone the repository and run "
+                "it there)" if bundle else
+                "clone the repository and run `./install.sh`")
     since = (f"Changes since [{previous}](https://github.com/{GITHUB_REPO}"
              f"/releases/tag/v{previous}).\n\n") if previous else ""
     rows = "\n".join(f"| `{name}` | `{digest}` |"
@@ -173,7 +180,7 @@ On another Fedora release, rebuild it with `rpmbuild --rebuild {srpm}`.
 
 Space then opens the preview in Dolphin (restart Dolphin if it was open); QuickView sets that up without overriding a shortcut you chose. There's no need to log out.
 
-**Any distribution:** clone the repository and run `./install.sh`. If you used `install.sh` before, run `./uninstall.sh` before installing the package.
+**Any distribution:** {anywhere}. If you used `install.sh` before, run `./uninstall.sh` before installing the package.
 
 ## Files
 
@@ -297,11 +304,17 @@ def preflight(version: str, dry_run: bool) -> dict:
             "fpr": fpr}
 
 
-def build(fpr: str) -> dict:
+def build(fpr: str, version: str) -> dict:
+    """The signed RPMs and the Zip bundle build-rpm.sh leaves in dist/,
+    with their SHA-256s."""
     say("== Building and signing (gpg asks for the key's passphrase)")
     run([os.path.join(ROOT, "packaging", "build-rpm.sh"), f"--sign={fpr}"])
     found = sorted(glob.glob(os.path.join(ROOT, "build", "rpm", "RPMS", "*", "*.rpm"))
                    + glob.glob(os.path.join(ROOT, "build", "rpm", "SRPMS", "*.rpm")))
+    bundle = os.path.join(ROOT, "dist", f"quickview-{version}.zip")
+    if not os.path.isfile(bundle):
+        raise ReleaseError(f"build-rpm.sh made no {os.path.relpath(bundle, ROOT)}")
+    found.append(bundle)
     files = {}
     for path in found:
         with open(path, "rb") as fh:
@@ -325,6 +338,9 @@ def verify_download(version: str, files: dict):
             with open(path, "rb") as fh:
                 if hashlib.sha256(fh.read()).hexdigest() != digest:
                     raise ReleaseError(f"{name} on GitHub is not the file built")
+            if not name.endswith(".rpm"):
+                say(f"   {name}: checksum matches")
+                continue
             run(["rpmkeys", *check, "-K", path], capture=True)
             say(f"   {name}: signature OK, checksum matches")
 
@@ -398,7 +414,8 @@ def main() -> int:
                 f"{today.isoformat()}\"")
             say("\n== Would publish these notes (checksums made up):\n")
             fake = {f"quickview-{version}-1.fc45.x86_64.rpm": "0" * 64,
-                    f"quickview-{version}-1.fc45.src.rpm": "0" * 64}
+                    f"quickview-{version}-1.fc45.src.rpm": "0" * 64,
+                    f"quickview-{version}.zip": "0" * 64}
             say(release_notes(version, info["current"], info["section"],
                               fake, info["fpr"]))
             say("Dry run: nothing was changed.")
@@ -417,7 +434,7 @@ def main() -> int:
              VERSION_FILE])
         run(["git", "tag", "-a", f"v{version}", "-m", f"QuickView {version}"])
         try:
-            built = build(info["fpr"])
+            built = build(info["fpr"], version)
         except ReleaseError:
             say("\nNothing was published. To undo the local release commit "
                 "and tag:\n"

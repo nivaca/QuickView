@@ -17,6 +17,9 @@ project has no version tags yet, so entries are dated.
   with the same files as the source tarball under `quickview-VERSION/`
   (unzipped, it is ready for `./install.sh`). Each build replaces the
   older ones; `dist/` is not tracked by git.
+- **Releases carry the Zip bundle.** `release.py` attaches
+  `quickview-VERSION.zip` to the GitHub and Codeberg releases, with its
+  checksum, and the notes offer it to other distributions.
 
 ## 0.2.5 — 2026-11-14
 

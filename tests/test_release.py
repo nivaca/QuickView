@@ -126,6 +126,18 @@ class Spec(unittest.TestCase):
 
 
 class Notes(unittest.TestCase):
+    def test_the_zip_bundle_is_offered_to_other_distributions(self):
+        files = {"quickview-0.1.3-1.fc45.x86_64.rpm": "a" * 64,
+                 "quickview-0.1.3-1.fc45.src.rpm": "b" * 64,
+                 "quickview-0.1.3.zip": "c" * 64}
+        notes = release.release_notes("0.1.3", "0.1.2", "- x\n", files, FPR)
+        self.assertIn("download `quickview-0.1.3.zip`, unzip it, and run "
+                      "`./install.sh` in the `quickview-0.1.3` folder", notes)
+        self.assertIn("| `quickview-0.1.3.zip` | `" + "c" * 64 + "` |", notes)
+
+    def test_without_a_bundle_the_notes_say_to_clone(self):
+        self.assertIn("clone the repository and run `./install.sh`.", self.notes())
+
     def notes(self):
         files = {"quickview-0.1.3-1.fc45.x86_64.rpm": "a" * 64,
                  "quickview-0.1.3-1.fc45.src.rpm": "b" * 64}
