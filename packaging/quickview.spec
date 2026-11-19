@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        0.2.5
+Version:        1.0.0
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -159,6 +159,23 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.0-1
+- An index sheet for a multi-file selection
+- Select and copy text in office documents
+- Dolphin's lost Space shortcut is noticed
+- How QuickView was made
+- Every build leaves its packages in dist/
+- Releases carry the Zip bundle
+- Also on Codeberg
+- Uninstalling gives Space back to Dolphin
+- The Dolphin shortcut lands in the right section
+- A checkout in a folder with spaces installs properly
+- Find shows the answer to the latest search only
+- File names that are not UTF-8 are previewed
+- A named pipe no longer freezes QuickView
+- The daemon decodes only PNG and JPEG
+- More of what the workers send is checked before use
+
 * Sat Nov 14 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 0.2.5-1
 - Python 3.15 or newer is required
 

@@ -5,7 +5,7 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
-## Unreleased
+## 1.0.0 — 2026-11-19
 
 QuickView 1.0. Besides what is listed below, the whole program was
 reviewed before this version, and the problems found are fixed here.
