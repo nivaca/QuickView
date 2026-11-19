@@ -42,6 +42,14 @@ project has no version tags yet, so entries are dated.
   `quickview-VERSION.zip` to the GitHub and Codeberg releases, with its
   checksum, and the notes offer it to other distributions.
 
+### Fixed
+
+- **A named pipe no longer freezes QuickView.** A FIFO whose name
+  ended in .txt, .zip, .md and so on was routed by its name and opened
+  for reading, which waits for a writer, on the daemon's main thread,
+  for good. Anything that is not a regular file now gets the info card,
+  and the sandbox opens files non-blocking and refuses the rest.
+
 ### Security
 
 - **The daemon decodes only PNG and JPEG.** Pages and frames from the

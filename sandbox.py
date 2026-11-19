@@ -17,11 +17,13 @@ finished pixels and text.
 """
 
 import array
+import errno
 import json
 import mmap
 import os
 import shutil
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -556,6 +558,25 @@ class FileReader(QObject):
             self.done.emit(b"", str(exc))
 
 
+def open_regular(path: str) -> int:
+    """An fd for reading a regular file, or OSError.
+
+    Opened non-blocking, so a FIFO (which would wait for a writer, on the
+    GUI thread) or a device returns at once and is refused; the flag is
+    cleared again for the worker's reads. The check is on the fd itself,
+    so a file swapped for a FIFO after the caller looked is caught too.
+    """
+    fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NONBLOCK)
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            raise OSError(errno.EINVAL, "not a regular file", path)
+        os.set_blocking(fd, True)
+    except BaseException:
+        os.close(fd)
+        raise
+    return fd
+
+
 class SandboxJob(QObject):
     """One file parsed by one jailed worker, asynchronously.
 
@@ -587,7 +608,7 @@ class SandboxJob(QObject):
             return
 
         try:
-            fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC)
+            fd = open_regular(path)
         except OSError as exc:
             self._worker.kill()
             self._worker = None

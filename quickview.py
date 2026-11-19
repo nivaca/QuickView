@@ -29,6 +29,7 @@ different file switches the preview.
 import html
 import os
 import socket
+import stat
 import sys
 from collections import OrderedDict
 
@@ -734,6 +735,11 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             self.show_message(f"File not found:\n{path}")
         elif os.path.isdir(path):
             self.show_folder(path)
+        elif not is_regular_file(path):
+            # A named pipe, socket or device: opening one to preview it
+            # would block (a FIFO waits for a writer) or read for ever.
+            # Its name may still say .txt or .zip; the card reads nothing.
+            self.show_fallback(path, self.mime_db.mimeTypeForFile(path).name())
         else:
             view, mime = self.route(path)
             {
@@ -822,10 +828,16 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         QPdfDocument still runs in the jail like every other one.
         """
         try:
-            with open(path, "rb") as fh:
-                return fh.read(4) == b"%PDF"
+            fd = os.open(path, os.O_RDONLY | os.O_CLOEXEC | os.O_NONBLOCK)
         except OSError:
             return False
+        try:
+            return (stat.S_ISREG(os.fstat(fd).st_mode)
+                    and os.read(fd, 4) == b"%PDF")
+        except OSError:
+            return False
+        finally:
+            os.close(fd)
 
     def show_message(self, text: str):
         label = QLabel(text)
@@ -856,6 +868,14 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         lay.addWidget(details)
         self.content.addWidget(wrap)
         self.set_panel_size(520, 360)
+
+
+def is_regular_file(path: str) -> bool:
+    """A regular file, following symlinks: the only kind that is previewed."""
+    try:
+        return stat.S_ISREG(os.stat(path).st_mode)
+    except OSError:
+        return False
 
 
 def connect_to_daemon() -> QLocalSocket | None:

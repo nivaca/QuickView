@@ -12,7 +12,9 @@ the disk cache hands it, and files that are not what their names say.
 """
 
 import os
+import signal
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -25,6 +27,8 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
 import common  # noqa: E402
+import quickview  # noqa: E402
+import sandbox  # noqa: E402
 
 # The smallest PDF QtPdf's image plugin renders: if the daemon's decoder
 # were chosen by sniffing, this would come back as a picture.
@@ -58,6 +62,52 @@ class DecodeFrame(unittest.TestCase):
 
     def test_a_png_header_on_something_else_fails_as_png(self):
         self.assertTrue(common.decode_frame(b"\x89PNG" + TINY_PDF).isNull())
+
+
+class NotARegularFile(unittest.TestCase):
+    """A named pipe opened for reading waits for a writer: on the GUI
+    thread, that froze the daemon for good."""
+
+    def setUp(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        self.dir = tmp.name
+        # A hang fails the test instead of the whole suite.
+        signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(
+            AssertionError("blocked on a FIFO")))
+        signal.alarm(10)
+        self.addCleanup(signal.alarm, 0)
+
+    def fifo(self, name):
+        path = os.path.join(self.dir, name)
+        os.mkfifo(path)
+        return path
+
+    def test_a_fifo_named_like_a_document_gets_the_card(self):
+        w = quickview.QuickView()
+        self.addCleanup(w.deleteLater)
+        for name in ("a.zip", "a.txt", "a.md", "a.pdf", "a.psd"):
+            with self.subTest(name):
+                w.show_files([self.fifo(name)])
+                self.assertIsNone(w._render_job)
+                self.assertEqual(w._preview_jobs, [])
+
+    def test_the_sandbox_refuses_one_without_blocking(self):
+        with self.assertRaises(OSError):
+            sandbox.open_regular(self.fifo("b.png"))
+
+    def test_a_regular_file_opens_blocking(self):
+        path = os.path.join(self.dir, "c.txt")
+        with open(path, "w") as fh:
+            fh.write("x")
+        fd = sandbox.open_regular(path)
+        self.addCleanup(os.close, fd)
+        self.assertTrue(os.get_blocking(fd))
+
+    def test_the_ai_sniff_does_not_open_a_fifo(self):
+        w = quickview.QuickView()
+        self.addCleanup(w.deleteLater)
+        self.assertFalse(w.is_pdf(self.fifo("d.ai")))
 
 
 if __name__ == "__main__":
