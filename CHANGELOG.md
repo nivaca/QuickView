@@ -12,6 +12,11 @@ project has no version tags yet, so entries are dated.
 - **Also on Codeberg.** The repository and every release, from 0.1.0
   on, are also at <https://codeberg.org/nivaca/QuickView>, and each new
   release is published on both GitHub and Codeberg.
+- **Every build leaves its packages in `dist/`.** `build-rpm.sh` copies
+  the binary RPM there and adds a Zip bundle, `quickview-VERSION.zip`,
+  with the same files as the source tarball under `quickview-VERSION/`
+  (unzipped, it is ready for `./install.sh`). Each build replaces the
+  older ones; `dist/` is not tracked by git.
 
 ## 0.2.5 — 2026-11-14
 

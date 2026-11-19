@@ -11,3 +11,6 @@ bin/quickview-client
 # Working notes, not part of the published project
 code-review-*.md
 macos-parity-*.md
+
+# Built packages (packaging/build-rpm.sh puts the RPM and the Zip bundle here)
+dist/

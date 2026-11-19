@@ -732,7 +732,10 @@ sudo dnf install build/rpm/RPMS/x86_64/quickview-*.rpm
 ```
 
 The build lands in `build/rpm/`, from the files in the checkout as they
-are, committed or not. Packages you build are not signed, so `dnf` warns
+are, committed or not. The binary RPM is also copied into `dist/`, next to
+a Zip bundle of the same files, `dist/quickview-VERSION.zip`: unzipped, it
+is a checkout without git, ready for `./install.sh`. Each build replaces
+the older ones in `dist/`. Packages you build are not signed, so `dnf` warns
 that it skipped the OpenPGP check. To sign them, build with `--sign` (your
 default GPG key) or `--sign=KEY` (a key ID, email or fingerprint), which
 needs `rpm-sign`:
