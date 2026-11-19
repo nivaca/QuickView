@@ -56,6 +56,9 @@ import tempfile
 import xml.etree.ElementTree as ET
 
 ACTION = "servicemenu_quickview-servicemenu.desktop::QuickView"
+# The settings entry of the same service menu, which Dolphin lists (with no
+# shortcut) once its Keyboard Shortcuts window has been saved.
+SETTINGS_ACTION = "servicemenu_quickview-servicemenu.desktop::QuickViewSettings"
 SELECTION_MODE = "toggle_selection_mode"
 # Dolphin's own actions bound to Space when the user has not changed them:
 # checked against Dolphin 26.08, where Selection Mode is the only one.
@@ -83,6 +86,21 @@ def uses_space(shortcut: str) -> bool:
         if first_key.lower() == "space":
             return True
     return False
+
+
+def section_span(text: str):
+    """(start, end) of the text inside the <ActionProperties> section the
+    shortcuts belong to (scheme "Default", else the first), or None: the
+    same section plan() reads, so an edit lands where it was decided."""
+    spans = []
+    for opening in re.finditer(r"<ActionProperties\b([^>]*)>", text):
+        close = text.find("</ActionProperties>", opening.end())
+        if close < 0:
+            break
+        scheme = re.search(r'\bscheme="([^"]*)"', opening.group(1))
+        spans.append(((scheme.group(1) if scheme else "Default"), opening.end(), close))
+    chosen = next((s for s in spans if s[0] == "Default"), spans[0] if spans else None)
+    return (chosen[1], chosen[2]) if chosen else None
 
 
 def plan(text):
@@ -122,9 +140,13 @@ def plan(text):
         lines.append(f'  <Action name="{ACTION}" shortcut="Space"/>')
     block = "\n".join(lines) + "\n"
 
-    if section is not None:
-        new, n = re.subn(r"(?m)^([ \t]*)</ActionProperties>",
-                         lambda m: block + m.group(0), text, count=1)
+    span = section_span(text) if section is not None else None
+    if span is not None:
+        # Before the chosen section's closing tag, on a line of its own.
+        at = text.rfind("\n", span[0], span[1]) + 1 or span[1]
+        new, n = text[:at] + block + text[at:], 1
+    elif section is not None:
+        new, n = text, 0
     else:
         new, n = re.subn(r"(?m)^</gui>",
                          ' <ActionProperties scheme="Default">\n' + block
@@ -142,7 +164,8 @@ def restore(text, current):
     current = (current or "").strip().strip(";").strip()
     wanted = "Space; " + current if current else "Space"
     element = re.compile(r'<Action\b[^>]*\bname="' + re.escape(ACTION) + r'"[^>]*>')
-    match = element.search(text, max(text.find("<ActionProperties"), 0))
+    span = section_span(text) or (0, len(text))
+    match = element.search(text, span[0], span[1])
     if not match:
         return None, f"left alone: could not find Quick Look's entry in {ui_file()}"
     tag = match.group(0)
@@ -196,7 +219,75 @@ def ensure(path: str = None, on: bool = None) -> str:
     return report + " — restart Dolphin to use it"
 
 
-def main() -> int:
+def unplan(text):
+    """(new text or None, what happened): plan() undone, for uninstalling.
+
+    Quick Look's entries go. So does Selection Mode's, if it is the
+    shortcut-less one plan() wrote while Quick Look had Space, so that
+    Space goes back to Dolphin's own Selection Mode; with Quick Look gone,
+    an entry left on it would leave Space doing nothing at all.
+    """
+    if text is None:
+        return None, "nothing to undo: no Dolphin settings file"
+    try:
+        root = ET.fromstring(text)
+    except ET.ParseError as exc:
+        return None, f"left alone: {ui_file()} is not valid XML ({exc})"
+    sections = root.findall("ActionProperties")
+    section = next((s for s in sections if s.get("scheme", "Default") == "Default"),
+                   sections[0] if sections else None)
+    entries = {a.get("name"): a.get("shortcut")
+               for a in (section.findall("Action") if section is not None else [])}
+    span = section_span(text)
+    if span is None or not ({ACTION, SETTINGS_ACTION} & set(entries)):
+        return None, "nothing to undo"
+    names = [ACTION, SETTINGS_ACTION]
+    quick = entries.get(ACTION)
+    selection = entries.get(SELECTION_MODE)
+    if quick is not None and uses_space(quick) and selection is not None \
+            and not selection.replace(";", "").strip():
+        names.append(SELECTION_MODE)
+    inside = text[span[0]:span[1]]
+    for name in names:
+        inside = re.sub(r'(?m)^[ \t]*<Action\b[^>]*\bname="' + re.escape(name)
+                        + r'"[^>]*/>[ \t]*\n?', "", inside)
+    new = text[:span[0]] + inside + text[span[1]:]
+    ET.fromstring(new)  # must still parse — ParseError reaches the caller
+    back = (" and Space given back to Selection Mode"
+            if SELECTION_MODE in names else "")
+    return new, "removed: Quick Look's shortcut" + back
+
+
+def remove(path: str = None) -> str:
+    """Apply unplan() to the file at path; a one-line report."""
+    path = path or ui_file()
+    try:
+        with open(path, encoding="utf-8") as fh:
+            text = fh.read()
+    except FileNotFoundError:
+        text = None
+    try:
+        new, report = unplan(text)
+    except ET.ParseError as exc:
+        return f"left alone: the edited file would not parse ({exc})"
+    if new is None:
+        return report
+    fd, tmp = tempfile.mkstemp(dir=os.path.dirname(path), prefix=".dolphinui.")
+    with os.fdopen(fd, "w", encoding="utf-8") as fh:
+        fh.write(new)
+    shutil.copymode(path, tmp)
+    os.replace(tmp, path)
+    return report + " — restart Dolphin to use it"
+
+
+def main(argv=None) -> int:
+    argv = sys.argv[1:] if argv is None else argv
+    if argv == ["--remove"]:
+        print(f"quickview: Dolphin shortcut {remove()}")
+        return 0
+    if argv:
+        print("usage: dolphin_shortcut.py [--remove]", file=sys.stderr)
+        return 2
     print(f"quickview: Dolphin shortcut {ensure()}")
     return 0
 

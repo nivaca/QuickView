@@ -150,6 +150,62 @@ class Restore(unittest.TestCase):
         self.assertEqual(ds.plan(new), (None, "unchanged: Quick Look already has the shortcut 'Space'"))
 
 
+class Sections(unittest.TestCase):
+    def test_the_default_scheme_is_edited_even_when_another_comes_first(self):
+        other = (' <ActionProperties scheme="Other">\n'
+                 '  <Action name="reload" shortcut="F5"/>\n </ActionProperties>\n')
+        text = HEAD + other + (' <ActionProperties scheme="Default">\n'
+                               '  <Action name="edit_copy" priority="0"/>\n'
+                               ' </ActionProperties>\n</gui>\n')
+        new, _ = ds.plan(text)
+        root = ET.fromstring(new)
+        by_scheme = {sec.get("scheme"): {a.get("name") for a in sec.findall("Action")}
+                     for sec in root.findall("ActionProperties")}
+        self.assertEqual(by_scheme["Other"], {"reload"})
+        self.assertIn(ds.ACTION, by_scheme["Default"])
+        self.assertEqual(ds.plan(new)[0], None, "and a second run finds it there")
+
+
+class Remove(unittest.TestCase):
+    def test_what_plan_added_is_taken_away(self):
+        old = ui('<Action name="edit_copy" priority="0"/>')
+        added, _ = ds.plan(old)
+        removed, report = ds.unplan(added)
+        self.assertEqual(removed, old)
+        self.assertIn("Space given back to Selection Mode", report)
+
+    def test_selection_mode_the_user_set_stays(self):
+        new, report = ds.unplan(ui(f'<Action name="{ds.SELECTION_MODE}" shortcut="Ctrl+M"/>',
+                                   f'<Action name="{ds.ACTION}" shortcut="Space"/>'))
+        self.assertEqual(shortcuts(new), {ds.SELECTION_MODE: "Ctrl+M"})
+        self.assertNotIn("Selection Mode", report)
+
+    def test_the_settings_entry_goes_too_and_menus_are_untouched(self):
+        text = (HEAD.replace('<Action name="file_new"/>',
+                             f'<Action name="file_new"/><Action name="{ds.SELECTION_MODE}"/>')
+                + ' <ActionProperties scheme="Default">\n'
+                + f'  <Action name="{ds.SELECTION_MODE}" shortcut=""/>\n'
+                + f'  <Action name="{ds.SETTINGS_ACTION}" shortcut=""/>\n'
+                + f'  <Action name="{ds.ACTION}" shortcut="Space"/>\n'
+                + ' </ActionProperties>\n</gui>\n')
+        new, _ = ds.unplan(text)
+        self.assertEqual(shortcuts(new), {})
+        self.assertIn(f'<Action name="{ds.SELECTION_MODE}"/></Menu>', new)
+
+    def test_nothing_to_undo(self):
+        self.assertIsNone(ds.unplan(ui())[0])
+        self.assertIsNone(ds.unplan(None)[0])
+
+    def test_remove_rewrites_the_file(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = os.path.join(tmp.name, "dolphinui.rc")
+        ds.ensure(path, on=True)
+        self.assertIn("removed", ds.remove(path))
+        with open(path) as fh:
+            self.assertNotIn(ds.ACTION, fh.read())
+
+
 class Ensure(unittest.TestCase):
     def setUp(self):
         tmp = tempfile.TemporaryDirectory()

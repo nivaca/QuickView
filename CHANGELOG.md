@@ -44,6 +44,13 @@ project has no version tags yet, so entries are dated.
 
 ### Fixed
 
+- **Uninstalling gives Space back to Dolphin.** `uninstall.sh` now runs
+  `dolphin_shortcut.py --remove`, which takes Quick Look's entries out
+  of Dolphin's settings and returns Space to Selection Mode; before, Space
+  was left bound to an action that no longer existed. Before `dnf remove`,
+  run it by hand (see the README).
+- **The Dolphin shortcut lands in the right section** of Dolphin's
+  settings when the file has more than one shortcut scheme.
 - **Find shows the answer to the latest search only.** A slower answer
   to an earlier search could land under the new query, or once the
   document changed, be painted on the next one. Malformed matches from

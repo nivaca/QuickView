@@ -27,6 +27,13 @@ done
 # The daemon first: disabling before the unit files go away is what stops
 # systemd leaving dangling symlinks in sockets.target.wants (and, from an
 # older install, graphical-session.target.wants).
+# Space in Dolphin: what dolphin_shortcut.py added to Dolphin's settings
+# comes out again, and Selection Mode gets Space back. Before the daemon
+# goes, as the script lives in this checkout.
+if [ -f "$DIR/dolphin_shortcut.py" ]; then
+    python3 "$DIR/dolphin_shortcut.py" --remove || true
+fi
+
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user disable --now quickview.socket 2>/dev/null || true
     systemctl --user disable --now quickview.service 2>/dev/null || true

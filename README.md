@@ -684,8 +684,9 @@ cd QuickView
 That is this fork. The original is at
 `https://github.com/MustaphaAlioglou/QuickView.git`, and installs the same way.
 
-`./uninstall.sh` reverses all of it (add `--purge` to drop your settings and
-the virtualenv too); the checkout itself is never touched.
+`./uninstall.sh` reverses all of it, Dolphin's Space shortcut included (add
+`--purge` to drop your settings and the virtualenv too); the checkout itself
+is never touched.
 
 `install.sh` checks for `bwrap`, builds the virtualenv, installs PySide6
 (a few hundred MB on first run), compiles the fast-path client if `rustc` is
@@ -733,6 +734,12 @@ uses it from its next start.
   as `dolphinui.rc.before-quickview`. To set it up by hand, run
   `python3 /usr/share/quickview/dolphin_shortcut.py` (or `dolphin_shortcut.py`
   in a checkout).
+- To take the shortcut out again, add `--remove`: Quick Look's entries go,
+  and Space goes back to Dolphin's Selection Mode. `uninstall.sh` does this
+  for you; a package cannot reach your home folder, so before `sudo dnf
+  remove quickview`, run `python3 /usr/share/quickview/dolphin_shortcut.py
+  --remove` yourself (otherwise Space in Dolphin does nothing afterwards,
+  until you give it to an action again).
 
 ### Building the RPM yourself
 
