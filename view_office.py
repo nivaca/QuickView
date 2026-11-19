@@ -37,6 +37,7 @@ from PySide6.QtWidgets import (
 )
 
 from common import (
+    decode_frame,
     cache_key,
     cache_read,
     cache_remove,
@@ -141,7 +142,7 @@ class OfficeViewMixin:
             self._render_office(path, doc)
 
         png0 = cache_read(page_key(0))
-        img0 = QImage.fromData(png0) if png0 is not None else QImage()
+        img0 = decode_frame(png0) if png0 is not None else QImage()
         total = 0
         if not img0.isNull():
             try:
@@ -231,7 +232,11 @@ class OfficeViewMixin:
         btn.setVisible(bool(image) and bool(text))
         if image and not self._office_text:
             btn.setText("Text")
-            img = QImage.fromData(base64.b64decode(image))
+            try:
+                raw = base64.b64decode(image, validate=True)
+            except (ValueError, TypeError):
+                raw = b""
+            img = decode_frame(raw)
             if not img.isNull():
                 max_w, max_h = self.image_fit_box()
                 # Embedded thumbnails are small — 256x144 for a PowerPoint

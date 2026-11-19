@@ -34,6 +34,7 @@ from PySide6.QtWidgets import (
 )
 
 from common import (
+    decode_frame,
     cache_key,
     cache_read,
     cache_read_head,
@@ -120,7 +121,7 @@ class DocumentViewMixin:
             self._fetch_outline(path, toc_key, page_w)
 
         png0 = cache_read(page_key(0))
-        img0 = QImage.fromData(png0) if png0 is not None else QImage()
+        img0 = decode_frame(png0) if png0 is not None else QImage()
         total = 0
         if not img0.isNull():
             try:
@@ -144,7 +145,7 @@ class DocumentViewMixin:
         if png0 is None:
             return False
         try:
-            return int(QImage.fromData(png0).text("QuickView:PageCount")) > 0
+            return int(decode_frame(png0).text("QuickView:PageCount")) > 0
         except ValueError:
             return False
 
@@ -342,7 +343,7 @@ class DocumentViewMixin:
                 cached_toc = None
 
         png0 = cache_read(page_key(0))
-        img0 = QImage.fromData(png0) if png0 is not None else QImage()
+        img0 = decode_frame(png0) if png0 is not None else QImage()
         total = 0
         if not img0.isNull():
             try:
@@ -395,7 +396,7 @@ class DocumentViewMixin:
                 cache_remove(toc_key)
 
         png0 = cache_read(page_key(0))
-        img0 = QImage.fromData(png0) if png0 is not None else QImage()
+        img0 = decode_frame(png0) if png0 is not None else QImage()
         total = 0
         if not img0.isNull():
             try:
@@ -887,7 +888,7 @@ class DocumentViewMixin:
                 return
             img = (
                 img0 if i == 0
-                else QImage.fromData(cache_read(page_key(i)) or b"")
+                else decode_frame(cache_read(page_key(i)) or b"")
             )
             if img.isNull():
                 # A page is missing (the pruner dropped it, or an earlier
@@ -940,7 +941,7 @@ class DocumentViewMixin:
                 return
             page = start + state["got"]
             state["got"] += 1
-            img = QImage.fromData(png)
+            img = decode_frame(png)
             if img.isNull():
                 # Left uncached, so the next open resumes the render here.
                 log.warning("pdf page %d decode failed: %s", page, path)

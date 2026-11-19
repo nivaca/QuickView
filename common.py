@@ -341,6 +341,29 @@ def is_cache_blob(data: bytes) -> bool:
     return data[:4] == PNG_MAGIC or data[:3] == JPEG_MAGIC
 
 
+def decode_frame(data) -> QImage:
+    """PNG or JPEG bytes as a QImage, or a null one for anything else.
+
+    Every image the daemon decodes from bytes (a worker's page or frame, a
+    disk-cache entry, an office file's embedded thumbnail) goes through
+    here. The decoder is named after the magic is checked, never chosen by
+    QImage.fromData's sniffing: that would hand a PDF to pdfium, an SVG to
+    the SVG renderer, a TIFF to libtiff, all inside the daemon, which must
+    parse nothing an untrusted file controls beyond the two formats its
+    own frames use.
+    """
+    data = bytes(data or b"")
+    if data[:4] == PNG_MAGIC:
+        fmt = "PNG"
+    elif data[:3] == JPEG_MAGIC:
+        fmt = "JPEG"
+    else:
+        return QImage()
+    img = QImage()
+    img.loadFromData(data, fmt)
+    return img
+
+
 def png_size(data: bytes) -> tuple[int, int] | None:
     """(width, height) from a PNG's IHDR, without decoding the image."""
     if len(data) < 24 or data[:4] != PNG_MAGIC or data[12:16] != b"IHDR":

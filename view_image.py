@@ -31,6 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from common import (
+    decode_frame,
     ANIM_MAX_FRAMES,
     ANIM_MAX_PIXMAP_BYTES,
     cache_has,
@@ -88,7 +89,7 @@ class ImageViewMixin:
 
         png = cache_read(key)
         if png is not None:
-            img = QImage.fromData(png)
+            img = decode_frame(png)
             if not img.isNull():
                 log.debug("disk cache hit: %s", path)
                 self._show_decoded(path, key, img)
@@ -272,7 +273,7 @@ class ImageViewMixin:
             if len(payload) < 4:  # the worker is untrusted: no short reads
                 return
             delay = struct.unpack(">I", payload[:4])[0]
-            img = QImage.fromData(payload[4:])
+            img = decode_frame(payload[4:])
             if img.isNull():
                 return
             pix = QPixmap.fromImage(img)

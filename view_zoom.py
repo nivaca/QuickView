@@ -35,7 +35,8 @@ from PySide6.QtWidgets import (
     QApplication, QFrame, QLabel, QPlainTextEdit, QScrollArea, QTableWidget, QWidget,
 )
 
-from common import cache_key, cache_read, cache_write, image_from_raw, is_cache_blob, log
+from common import (cache_key, cache_read, cache_write, decode_frame, image_from_raw,
+                    is_cache_blob, log)
 from sandbox import SandboxJob
 
 ZOOM_STEPS = (0.25, 0.33, 0.5, 0.67, 0.75, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75,
@@ -279,7 +280,7 @@ class ZoomMixin:
         key = cache_key(path, st, want.width(), want.height())
         png = cache_read(key)
         if png is not None:
-            img = QImage.fromData(png)
+            img = decode_frame(png)
             if not img.isNull():
                 self._image_more_pixels(state, img)
                 return
@@ -465,7 +466,7 @@ class ZoomMixin:
             if not 0 <= page < len(self._pdf_labels) or \
                     round(min(self._page_scale * self._zoom, HIRES_MAX_SCALE), 2) != want:
                 return
-            img = QImage.fromData(png)
+            img = decode_frame(png)
             if img.isNull():
                 return
             label = self._pdf_labels[page]

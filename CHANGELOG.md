@@ -42,6 +42,15 @@ project has no version tags yet, so entries are dated.
   `quickview-VERSION.zip` to the GitHub and Codeberg releases, with its
   checksum, and the notes offer it to other distributions.
 
+### Security
+
+- **The daemon decodes only PNG and JPEG.** Pages and frames from the
+  workers, disk-cache entries and an office file's embedded thumbnail
+  were decoded with Qt's format sniffing, so a slide deck whose
+  "thumbnail" was really a PDF or an SVG had it parsed by pdfium or the
+  SVG renderer inside the daemon. Every such decode now checks the PNG
+  or JPEG signature and names that decoder; anything else is refused.
+
 ## 0.2.5 — 2026-11-14
 
 ### Changed
