@@ -27,6 +27,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 _app = QApplication.instance() or QApplication([sys.argv[0]])
 
 import common  # noqa: E402
+import view_document  # noqa: E402
 import quickview  # noqa: E402
 import sandbox  # noqa: E402
 
@@ -125,6 +126,56 @@ class NotUtf8(unittest.TestCase):
         self.addCleanup(w.deleteLater)
         w.show_files([path])  # raised UnicodeEncodeError before
         self.assertEqual(w.current_path, path)
+
+
+class FakeJob:
+    made = []
+
+    def __init__(self, pool, path, job, on_frame, on_done, parent=None, **_kw):
+        self.path, self.job, self.on_frame, self.on_done = path, job, on_frame, on_done
+        self.cancelled = False
+        FakeJob.made.append(self)
+
+    def cancel(self):
+        self.cancelled = True
+
+    def answer(self, matches):
+        import json
+        self.on_frame(json.dumps({"matches": matches}).encode())
+        self.on_done(True, "")
+
+
+class Find(unittest.TestCase):
+    def setUp(self):
+        FakeJob.made = []
+        saved = view_document.SandboxJob
+        view_document.SandboxJob = FakeJob
+        self.addCleanup(setattr, view_document, "SandboxJob", saved)
+        self.w = quickview.QuickView()
+        self.addCleanup(self.w.deleteLater)
+        self.w._page_scale = 1.0
+        self.w._pdf_begin_view("/x.pdf", 2, [(200, 100)] * 2, op="pdf", page_w=200)
+
+    def search(self, query):
+        self.w._find_input.setText(query)
+        self.w._find_submit()
+        return FakeJob.made[-1]
+
+    def test_a_newer_search_wins(self):
+        first = self.search("foo")
+        second = self.search("bar")
+        self.assertTrue(first.cancelled)
+        first.answer([{"page": 0, "rects": [[1, 1, 5, 5]]}])
+        self.assertEqual(self.w._find_hits, [], "foo's answer is not bar's")
+        self.assertIs(self.w._find_job, second)
+        second.answer([{"page": 1, "rects": [[2, 2, 5, 5]]}])
+        self.assertEqual([h["page"] for h in self.w._find_hits], [1])
+
+    def test_a_malformed_answer_is_cleaned(self):
+        self.search("foo").answer([
+            "x", {"page": "1", "rects": [[1, 1, 1, 1]]}, {"page": 0, "rects": [[1, 1]]},
+            {"page": 1, "rects": [[1, 1, 1, 1e999]]}, {"page": 1, "rects": [[3, 3, 4, 4]]}])
+        self.assertEqual(self.w._find_hits, [{"page": 1, "rects": [[3.0, 3.0, 4.0, 4.0]]}])
 
 
 if __name__ == "__main__":

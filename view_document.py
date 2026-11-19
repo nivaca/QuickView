@@ -14,6 +14,7 @@ sidebar and find-in-document.
 """
 
 import json
+import math
 import os
 from string import Template
 
@@ -54,6 +55,29 @@ from widgets import (
     MatchOverlay,
 )
 from view_zoom import label_zoom
+
+
+def clean_hits(matches) -> list:
+    """A worker's search matches, keeping only well-formed ones:
+    {"page": int >= 0, "rects": [[x, y, w, h] of numbers, ...]}. The worker
+    parsed an untrusted file, so its answer is checked like one."""
+    out = []
+    if not isinstance(matches, list):
+        return out
+    for hit in matches:
+        if not isinstance(hit, dict):
+            continue
+        page, rects = hit.get("page"), hit.get("rects")
+        if not isinstance(page, int) or isinstance(page, bool) or page < 0 \
+                or not isinstance(rects, list):
+            continue
+        kept = [[float(v) for v in r] for r in rects
+                if isinstance(r, list) and len(r) == 4
+                and all(isinstance(v, (int, float)) and not isinstance(v, bool)
+                        and math.isfinite(v) and abs(v) < 1e7 for v in r)]
+        if kept:
+            out.append({"page": page, "rects": kept})
+    return out
 
 
 class DocumentViewMixin:
@@ -736,12 +760,19 @@ class DocumentViewMixin:
             return
         self._find_label.setText("…")
         self._find_of = query
-        got = {"blob": None}
+        # One search at a time: an answer to an earlier query must not land
+        # under this one, nor, once the document changes, on the next.
+        if self._find_job is not None:
+            self._find_job.cancel()
+            self._find_job = None
+        got = {"blob": None, "job": None}
 
         def on_frame(data: bytes):
             got["blob"] = data
 
         def on_done(ok: bool, error: str):
+            if got["job"] is not self._find_job:
+                return  # superseded or cancelled: not this view's answer
             self._find_job = None
             try:
                 payload = json.loads(got["blob"]) if ok and got["blob"] else {}
@@ -749,7 +780,8 @@ class DocumentViewMixin:
                 payload = {}
             if not ok:
                 log.warning("find failed: %s (%s)", self._find_path, error[:200])
-            self._find_hits = payload.get("matches", [])
+            self._find_hits = clean_hits(payload.get("matches")
+                                         if isinstance(payload, dict) else None)
             self._find_at = 0 if self._find_hits else -1
             if not self._find_hits:
                 self._find_label.setText("no matches")
@@ -767,7 +799,7 @@ class DocumentViewMixin:
             # different palette or font is a different style sheet — so the
             # search is told what the pages on screen were rendered with.
             job.update(self.reading_layout())
-        self._find_job = SandboxJob(
+        self._find_job = got["job"] = SandboxJob(
             self.pool, self._find_path, job, on_frame, on_done, self,
         )
 

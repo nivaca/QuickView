@@ -44,6 +44,10 @@ project has no version tags yet, so entries are dated.
 
 ### Fixed
 
+- **Find shows the answer to the latest search only.** A slower answer
+  to an earlier search could land under the new query, or once the
+  document changed, be painted on the next one. Malformed matches from
+  the worker are dropped too.
 - **File names that are not UTF-8 are previewed** (a Latin-1
   `café.png`, say). The cache key encoded the name strictly and raised,
   so the panel never appeared.
