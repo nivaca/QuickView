@@ -176,8 +176,9 @@ idle_minutes = 10
 # Whether Space opens Quick Look in Dolphin. When true, QuickView checks
 # Dolphin's shortcuts at each login and gives Space back to Quick Look if
 # it was lost (Dolphin 26.08 drops service-menu shortcuts whenever its
-# settings are applied). Space is never taken from another Dolphin action
-# you gave it to. When false, QuickView leaves Dolphin's shortcuts alone.
+# settings are applied), and offers to restart Dolphin when an open one
+# drops it. Space is never taken from another Dolphin action you gave it
+# to. When false, QuickView leaves Dolphin's shortcuts alone.
 dolphin_space = true
 """
 

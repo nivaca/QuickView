@@ -1,0 +1,25 @@
+# QuickView — a Quick Look style file previewer for KDE Plasma.
+# Copyright (C) 2026 Nicolas Vaughan <nicolasvaughan@proton.me>
+#
+# This program is free software: you can redistribute it and/or modify it
+# under the terms of the GNU General Public License as published by the
+# Free Software Foundation, either version 3 of the License, or (at your
+# option) any later version. This program is distributed WITHOUT ANY
+# WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
+#
+# Dolphin 26.08 forgets the Space shortcut in its open windows whenever its
+# settings are applied; this notices, and offers to restart Dolphin (see
+# dolphin_watch.py). With Dolphin 26.12 or later it exits at once.
+
+[Unit]
+Description=QuickView: notices when Dolphin drops the Space shortcut
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+ExecStart=@PYTHON@ @APPDIR@/dolphin_watch.py
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=graphical-session.target

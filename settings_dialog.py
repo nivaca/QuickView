@@ -304,8 +304,9 @@ class SettingsDialog(QDialog):
             "Checked at each login and when you save here: if Dolphin has "
             "lost the shortcut, QuickView gives Space back to Quick Look, "
             "unless you gave Space to another Dolphin action. Dolphin uses "
-            "it from its next start. Off: QuickView leaves Dolphin's "
-            "shortcuts alone.")
+            "it from its next start, and when an open Dolphin drops it, a "
+            "notification offers to restart Dolphin. Off: QuickView leaves "
+            "Dolphin's shortcuts alone.")
         dolphin_note.setWordWrap(True)
         form.addRow("", dolphin_note)
         return page

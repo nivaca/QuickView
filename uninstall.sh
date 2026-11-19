@@ -30,8 +30,10 @@ done
 if command -v systemctl >/dev/null 2>&1; then
     systemctl --user disable --now quickview.socket 2>/dev/null || true
     systemctl --user disable --now quickview.service 2>/dev/null || true
+    systemctl --user disable --now quickview-dolphin-watch.service 2>/dev/null || true
     rm -f "$HOME/.config/systemd/user/quickview.socket"
     rm -f "$HOME/.config/systemd/user/quickview.service"
+    rm -f "$HOME/.config/systemd/user/quickview-dolphin-watch.service"
     systemctl --user daemon-reload 2>/dev/null || true
 fi
 # The XDG autostart entry, used on systemd-less setups.

@@ -10,3 +10,6 @@
 # Enable QuickView's socket for every user: it starts the previewer on the
 # first Space press. The daemon itself is started by the socket, not here.
 enable quickview.socket
+# And the watch that offers to restart Dolphin when Dolphin 26.08 drops the
+# Space shortcut (it exits at once with a Dolphin that keeps it).
+enable quickview-dolphin-watch.service

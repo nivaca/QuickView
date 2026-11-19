@@ -286,12 +286,18 @@ if command -v systemctl >/dev/null 2>&1; then
         > "$HOME/.config/systemd/user/quickview.socket"
     sed "s|@QUICKVIEW@|$DIR/bin/quickview|" "$DIR/packaging/quickview.service.in" \
         > "$HOME/.config/systemd/user/quickview.service"
+    sed -e "s|@PYTHON@|$PY|" -e "s|@APPDIR@|$DIR|" \
+        "$DIR/packaging/quickview-dolphin-watch.service.in" \
+        > "$HOME/.config/systemd/user/quickview-dolphin-watch.service"
     rm -f "$HOME/.config/autostart/quickview-daemon.desktop"
     systemctl --user daemon-reload
     systemctl --user enable quickview.socket
     # restart, not `enable --now`: --now leaves an already-listening socket
     # untouched, so a changed unit would not take effect until next login.
     systemctl --user restart quickview.socket
+    # The Dolphin watch (dolphin_watch.py), for this session and the next.
+    systemctl --user enable quickview-dolphin-watch.service
+    systemctl --user restart quickview-dolphin-watch.service || true
 else
     mkdir -p "$HOME/.config/autostart"
     cat > "$HOME/.config/autostart/quickview-daemon.desktop" <<EOF

@@ -17,6 +17,15 @@ project has no version tags yet, so entries are dated.
   with the same files as the source tarball under `quickview-VERSION/`
   (unzipped, it is ready for `./install.sh`). Each build replaces the
   older ones; `dist/` is not tracked by git.
+- **Dolphin's lost Space shortcut is noticed.** Dolphin 26.08 forgets
+  the shortcut in its open windows whenever Configure Dolphin is applied
+  (even with nothing changed) or its context-menu settings change, and
+  only a restart brings it back. A small background service,
+  `quickview-dolphin-watch`, listens for those two moments on the
+  session bus and shows a notification with a **Restart Dolphin**
+  button, which closes Dolphin's windows as their close buttons would
+  and starts it again. It follows the `dolphin_space` setting, and exits
+  at once with Dolphin 26.12 or later, which keeps the shortcut.
 - **Releases carry the Zip bundle.** `release.py` attaches
   `quickview-VERSION.zip` to the GitHub and Codeberg releases, with its
   checksum, and the notes offer it to other distributions.

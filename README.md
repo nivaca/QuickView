@@ -707,8 +707,12 @@ uses it from its next start.
   Dolphin's Keyboard Shortcuts window in the meantime writes the loss to
   the file. QuickView puts Space back at each login and when you save its
   settings window. A Dolphin window already open needs closing and opening
-  again. (Fixed in Dolphin's development version; expected in its next
-  feature release.)
+  again, so QuickView also watches for the moment Dolphin drops it (a
+  small background service, `quickview-dolphin-watch`, listening for
+  Dolphin's own D-Bus signals) and shows a notification with a **Restart
+  Dolphin** button. The restart closes each window as its close button
+  would, so Dolphin still asks before closing several tabs. Dolphin 26.12
+  keeps the shortcut, and with it the watch exits at once.
 - Space you gave to Selection Mode or any other action stays yours: the
   file is left as it is. If you give Quick Look another key too, Space is
   kept beside it.

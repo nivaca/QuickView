@@ -34,6 +34,8 @@ BuildRequires:  desktop-file-utils
 Requires:       python3 >= 3.15
 Requires:       python3-pyside6
 Requires:       python3-pygments
+# The Dolphin watch's notification, with its "Restart Dolphin" button.
+Requires:       /usr/bin/notify-send
 # Every parser runs in a bubblewrap jail; without it nothing is previewed.
 Requires:       bubblewrap
 %{?systemd_requires}
@@ -89,6 +91,9 @@ sed -e 's|@PYTHON@|%{python3}|' -e 's|@APPDIR@|%{_datadir}/%{name}|' \
     packaging/quickview.socket.in > %{buildroot}%{_userunitdir}/quickview.socket
 sed 's|@QUICKVIEW@|%{_bindir}/quickview|' packaging/quickview.service.in \
     > %{buildroot}%{_userunitdir}/quickview.service
+sed -e 's|@PYTHON@|%{python3}|' -e 's|@APPDIR@|%{_datadir}/%{name}|' \
+    packaging/quickview-dolphin-watch.service.in \
+    > %{buildroot}%{_userunitdir}/quickview-dolphin-watch.service
 install -Dpm 0644 packaging/80-quickview.preset \
     %{buildroot}%{_userpresetdir}/80-quickview.preset
 
@@ -109,21 +114,34 @@ desktop-file-validate %{buildroot}%{_datadir}/applications/quickview-settings.de
 ! grep -rl '@[A-Z]*@' %{buildroot}%{_bindir} %{buildroot}%{_userunitdir} \
     %{buildroot}%{_datadir}/applications %{buildroot}%{_datadir}/kio
 
+# An upgrade from a version without the Dolphin watch: %%systemd_user_post
+# enables new units only on a first install, so the watch is enabled here,
+# once, by the presets (80-quickview.preset). It runs from the next login.
+%pre
+if [ $1 -ge 2 ] && [ ! -e %{_userunitdir}/quickview-dolphin-watch.service ]; then
+    mkdir -p %{_localstatedir}/lib/rpm-state/%{name}
+    touch %{_localstatedir}/lib/rpm-state/%{name}/enable-dolphin-watch
+fi
+
 %post
-%systemd_user_post quickview.socket
+%systemd_user_post quickview.socket quickview-dolphin-watch.service
+if [ -e %{_localstatedir}/lib/rpm-state/%{name}/enable-dolphin-watch ]; then
+    systemctl --no-reload --global preset quickview-dolphin-watch.service >/dev/null 2>&1 || :
+    rm -rf %{_localstatedir}/lib/rpm-state/%{name}
+fi
 if [ $1 -ge 2 ] && [ -x %{_prefix}/lib/systemd/systemd-update-helper ]; then
-    %{_prefix}/lib/systemd/systemd-update-helper mark-restart-user-units quickview.service || :
+    %{_prefix}/lib/systemd/systemd-update-helper mark-restart-user-units quickview.service quickview-dolphin-watch.service || :
 fi
 
 %preun
-%systemd_user_preun quickview.socket
+%systemd_user_preun quickview.socket quickview-dolphin-watch.service
 
 # An upgrade restarts a running daemon, so it runs the new code at once
 # rather than at the next login. %postun runs from the package being
 # replaced, so the new one also marks it here, which covers an upgrade
 # from a version without the %postun. Only a running unit is restarted.
 %postun
-%systemd_user_postun_with_restart quickview.service
+%systemd_user_postun_with_restart quickview.service quickview-dolphin-watch.service
 
 %files
 %license LICENSE
@@ -133,6 +151,7 @@ fi
 %{_datadir}/%{name}/
 %{_userunitdir}/quickview.socket
 %{_userunitdir}/quickview.service
+%{_userunitdir}/quickview-dolphin-watch.service
 %{_userpresetdir}/80-quickview.preset
 %{_datadir}/applications/quickview-settings.desktop
 %dir %{_datadir}/kio
