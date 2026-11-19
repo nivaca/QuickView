@@ -7,16 +7,13 @@ project has no version tags yet, so entries are dated.
 
 ## Unreleased
 
-### Changed
+QuickView 1.0. Besides what is listed below, the whole program was
+reviewed before this version, and the problems found are fixed here.
+The README and `docs/` (DESCRIPTION.md and DESCRIPCIÓN_es.md, new) tell
+how it works and how it was made.
 
-- **Also on Codeberg.** The repository and every release, from 0.1.0
-  on, are also at <https://codeberg.org/nivaca/QuickView>, and each new
-  release is published on both GitHub and Codeberg.
-- **Every build leaves its packages in `dist/`.** `build-rpm.sh` copies
-  the binary RPM there and adds a Zip bundle, `quickview-VERSION.zip`,
-  with the same files as the source tarball under `quickview-VERSION/`
-  (unzipped, it is ready for `./install.sh`). Each build replaces the
-  older ones; `dist/` is not tracked by git.
+### Added
+
 - **An index sheet for a multi-file selection**, as in Quick Look: the
   **▦** button in the title bar, or Ctrl+Enter, shows every selected file
   as a thumbnail; the arrows move through them and Enter or a click opens
@@ -38,9 +35,22 @@ project has no version tags yet, so entries are dated.
   button, which closes Dolphin's windows as their close buttons would
   and starts it again. It follows the `dolphin_space` setting, and exits
   at once with Dolphin 26.12 or later, which keeps the shortcut.
+- **How QuickView was made**, in `docs/DESCRIPTION.md`, and a
+  description in Spanish, `docs/DESCRIPCIÓN_es.md`.
+
+### Changed
+
+- **Every build leaves its packages in `dist/`.** `build-rpm.sh` copies
+  the binary RPM there and adds a Zip bundle, `quickview-VERSION.zip`,
+  with the same files as the source tarball under `quickview-VERSION/`
+  (unzipped, it is ready for `./install.sh`). Each build replaces the
+  older ones; `dist/` is not tracked by git.
 - **Releases carry the Zip bundle.** `release.py` attaches
   `quickview-VERSION.zip` to the GitHub and Codeberg releases, with its
   checksum, and the notes offer it to other distributions.
+- **Also on Codeberg.** The repository and every release, from 0.1.0
+  on, are also at <https://codeberg.org/nivaca/QuickView>, and each new
+  release is published on both GitHub and Codeberg.
 
 ### Fixed
 
@@ -70,18 +80,18 @@ project has no version tags yet, so entries are dated.
 
 ### Security
 
-- **More of what the workers send is checked before use**: a contents
-  entry's level (a huge one froze the daemon), a header that is not an
-  object, player messages and times, colour spans, archive sizes and
-  counts, an animation's frame delay (0 spun the timer), and a cached
-  table of contents. A player message too large to read now ends the
-  preview with an error instead of leaving dead controls.
 - **The daemon decodes only PNG and JPEG.** Pages and frames from the
   workers, disk-cache entries and an office file's embedded thumbnail
   were decoded with Qt's format sniffing, so a slide deck whose
   "thumbnail" was really a PDF or an SVG had it parsed by pdfium or the
   SVG renderer inside the daemon. Every such decode now checks the PNG
   or JPEG signature and names that decoder; anything else is refused.
+- **More of what the workers send is checked before use**: a contents
+  entry's level (a huge one froze the daemon), a header that is not an
+  object, player messages and times, colour spans, archive sizes and
+  counts, an animation's frame delay (0 spun the timer), and a cached
+  table of contents. A player message too large to read now ends the
+  preview with an error instead of leaving dead controls.
 
 ## 0.2.5 — 2026-11-14
 
