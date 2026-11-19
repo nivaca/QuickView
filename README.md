@@ -13,7 +13,12 @@ Space again (or Esc) to dismiss it.
 
 Multi-select works too: select **several files**, trigger QuickView, and
 **← / →** pages through them — the title shows your position (e.g. `2/5`),
-just like Quick Look on a multi-file selection.
+just like Quick Look on a multi-file selection. The **▦** button (or
+**Ctrl+Enter**) shows them all at once as thumbnails, Quick Look's index
+sheet: the arrows move through it, and **Enter** or a click opens one. The
+thumbnails are the ones Dolphin has already made, from the freedesktop
+cache (`~/.cache/thumbnails`), or for images not there yet, decoded in the
+jail like any preview; other files show their type's icon.
 
 > **About this fork.** This is [nivaca/QuickView][fork], by
 > **Nicolas Vaughan** (<nicolasvaughan@proton.me>), forked from the
@@ -142,6 +147,7 @@ just like Quick Look on a multi-file selection.
 | Space / Esc / Q | Close the preview                         |
 | ← / →           | Previous / next file — pages through the selection if several files were passed, otherwise folder siblings |
 | Enter           | Open the file in its default application  |
+| Ctrl+Enter      | All the selected files as thumbnails (several files selected), and back |
 | Ctrl+F          | Find text in a PDF, words or phrases — Enter and Shift+Enter step through matches, Esc closes |
 | Drag / double-click | Select text (also on PDF, Markdown, book and office pages), or one word |
 | Ctrl+A / Ctrl+C | Select all the text / copy the selection   |

@@ -184,6 +184,16 @@ class TitleBar(QWidget):
         self.toc_btn.clicked.connect(window.toggle_toc)
         self.toc_btn.hide()
 
+        # Several files selected: every one of them as a thumbnail, and
+        # back (view_index.py).
+        self.index_btn = QPushButton("▦")
+        self.index_btn.setObjectName("tocBtn")
+        self.index_btn.setFixedSize(24, 24)
+        self.index_btn.setCheckable(True)
+        self.index_btn.setToolTip("All selected files (Ctrl+Enter)")
+        self.index_btn.clicked.connect(window.toggle_index_sheet)
+        self.index_btn.hide()
+
         # HTML only: flips between rendered preview and source view.
         self.mode_btn = QPushButton("Code")
         self.mode_btn.setObjectName("openBtn")
@@ -215,10 +225,10 @@ class TitleBar(QWidget):
         while lay.count():
             lay.takeAt(0)  # the widgets stay; only their slots are cleared
         if self._window.theme["close_side"] == "left":
-            order = (self.close_btn, self.toc_btn, None,
+            order = (self.close_btn, self.toc_btn, self.index_btn, None,
                      self.mode_btn, self.open_btn, self.settings_btn)
         else:
-            order = (self.toc_btn, None, self.mode_btn,
+            order = (self.toc_btn, self.index_btn, None, self.mode_btn,
                      self.open_btn, self.settings_btn, self.close_btn)
         for widget in order:
             if widget is None:

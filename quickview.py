@@ -105,6 +105,9 @@ from view_selection import (
 from view_text import (
     TextViewMixin,
 )
+from view_index import (
+    IndexSheetMixin,
+)
 from view_zoom import (
     ZoomMixin,
 )
@@ -114,7 +117,7 @@ from widgets import (
 
 class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
                 TextViewMixin, OfficeViewMixin, TextSelectionMixin, ZoomMixin,
-                QWidget):
+                IndexSheetMixin, QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowFlags(
@@ -232,6 +235,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             QKeySequence(Qt.CTRL | Qt.Key_Q), self,
             activated=QApplication.instance().quit,
         )
+        self._init_index()
 
     def dismiss(self, reason: str = "request"):
         """Hide the preview; the process stays for as long as daemon_mode
@@ -586,6 +590,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
             self._find_job = None
         self._set_nav_shortcuts(True)
         self._forget_zoom_view()
+        self._forget_index()
         while self.content.count():
             w = self.content.takeAt(0).widget()
             if w is not None:
@@ -723,6 +728,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         self.set_title(name)
         self.titlebar.mode_btn.setVisible(False)  # show_html() re-enables
         self.titlebar.toc_btn.setVisible(False)   # _set_toc() re-enables
+        self.titlebar.index_btn.setVisible(len(self.selection) > 1)
 
         if not os.path.exists(path):
             self.show_message(f"File not found:\n{path}")

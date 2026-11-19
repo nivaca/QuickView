@@ -17,6 +17,12 @@ project has no version tags yet, so entries are dated.
   with the same files as the source tarball under `quickview-VERSION/`
   (unzipped, it is ready for `./install.sh`). Each build replaces the
   older ones; `dist/` is not tracked by git.
+- **An index sheet for a multi-file selection**, as in Quick Look: the
+  **▦** button in the title bar, or Ctrl+Enter, shows every selected file
+  as a thumbnail; the arrows move through them and Enter or a click opens
+  one. Thumbnails come from the freedesktop cache Dolphin fills (read as
+  PNG only, and only while they match the file's modification time), or
+  for images, from the jail; other files show their type's icon.
 - **Select and copy text in office documents** (Word, LibreOffice and
   the legacy formats LibreOffice opens), as in PDFs: from the PDF
   LibreOffice makes of the document, or from QuickView's built-in
