@@ -97,8 +97,8 @@ class DocumentViewMixin:
     """
 
     # -------------------------------------------------------------- pdf
-    # PDFs render out of process like still images: render_pdf.py streams
-    # page PNGs from inside the bubblewrap jail and the daemon shows page 1
+    # PDFs render out of process like still images: the worker (worker.py,
+    # op "pdf") streams page PNGs from inside the bubblewrap jail and the daemon shows page 1
     # the moment it arrives. Pages land in the disk cache individually, so
     # a repeat view never touches the PDF parser at all.
 

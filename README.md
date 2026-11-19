@@ -878,7 +878,9 @@ exited, by the launcher on the next preview; the modes behave the same.
 .venv/bin/python -m unittest discover -s tests -t .
 ```
 
-252 checks, about ten seconds, no display needed — the Qt ones run offscreen.
+About 500 checks, about twelve seconds, no display needed — the Qt ones run
+offscreen (from a desktop session, set `QT_QPA_PLATFORM=offscreen` yourself,
+or a few that need keyboard focus fail on a real display).
 Any way of starting them works: `discover` with or without `-s`/`-t`, from
 the repo root or from inside `tests/`, or a single file run directly.
 
