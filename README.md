@@ -49,8 +49,8 @@ just like Quick Look on a multi-file selection.
 - **Find in PDFs and books.** **Ctrl+F** searches the text and highlights
   matches in place; **Enter** / **Shift+Enter** step through them. Phrases
   work, including across line breaks.
-- **Select and copy text**, as in Quick Look, in PDFs, rendered Markdown
-  and EPUB books: drag across the page (the view scrolls when the pointer
+- **Select and copy text**, as in Quick Look, in PDFs, rendered Markdown,
+  EPUB books and office documents: drag across the page (the view scrolls when the pointer
   leaves it), double-click a word, or press **Ctrl+A**; **Ctrl+C** copies.
   Lines and paragraphs keep their breaks, a table row copies as one line
   with tabs between its cells, and the selection also goes to the primary
@@ -143,7 +143,7 @@ just like Quick Look on a multi-file selection.
 | ← / →           | Previous / next file — pages through the selection if several files were passed, otherwise folder siblings |
 | Enter           | Open the file in its default application  |
 | Ctrl+F          | Find text in a PDF, words or phrases — Enter and Shift+Enter step through matches, Esc closes |
-| Drag / double-click | Select text (also on PDF, Markdown and book pages), or one word |
+| Drag / double-click | Select text (also on PDF, Markdown, book and office pages), or one word |
 | Ctrl+A / Ctrl+C | Select all the text / copy the selection   |
 | Ctrl++ (Ctrl+=) / Ctrl+- / Ctrl+0 | Zoom in / out / back to 100% — also Ctrl+mouse wheel |
 | Ctrl+Q          | Quit the background daemon entirely       |
@@ -311,6 +311,10 @@ now; a cached preview is ~2 ms.
   question with `mdtext` and `epubtext`, which lay the text out again in
   the jail exactly as its pages were painted (same width, theme and font)
   and read each word's box from that layout (`renderers.document_text`).
+  Office documents use `officetext`: the text layer of the PDF
+  LibreOffice makes of them, or the built-in layout, whichever painted
+  the pages, for every page at once, since the conversion is the slow
+  part.
 - **Animations** (GIF/APNG) — every frame is decoded in the jail and
   streamed here; playback is a timer cycling pixmaps the daemon already
   holds, so no animation parser runs in this process.

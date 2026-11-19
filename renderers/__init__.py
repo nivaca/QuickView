@@ -114,6 +114,7 @@ from .suite import (
     _office_suite_kind,
     _ole_kind,
     _pages_via_office_suite,
+    _text_via_office_suite,
     _suite_convert,
 )
 from .office import (
@@ -126,6 +127,8 @@ from .office import (
     ODF_TEXT,
     _office_text,
     office_pages,
+    office_text,
+    _office_document,
     _pages_via_qtextdocument,
     document_text,
     _document_pages,
@@ -326,6 +329,7 @@ __all__ = [
     "_office_suite_kind",
     "_ole_kind",
     "_pages_via_office_suite",
+    "_text_via_office_suite",
     "_suite_convert",
     "office_preview",
     "_embedded_thumbnail",
@@ -336,6 +340,8 @@ __all__ = [
     "ODF_TEXT",
     "_office_text",
     "office_pages",
+    "office_text",
+    "_office_document",
     "_pages_via_qtextdocument",
     "document_text",
     "_document_pages",

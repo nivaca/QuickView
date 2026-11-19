@@ -159,12 +159,13 @@ class NotAPdf(unittest.TestCase):
         QTest.keyClick(w, Qt.Key_A, Qt.ControlModifier)
         self.assertEqual(QGuiApplication.clipboard().text(), "kept")
 
-    def test_an_office_page_view_is_not_selectable(self):
+    def test_an_office_page_view_is_selectable_too(self):
+        # Through its own op (tests/test_reading_select.py has the rest).
         w = quickview.QuickView()
         self.addCleanup(w.deleteLater)
         w._page_scale = 1.0
         w._pdf_begin_view("/x.docx", 1, [(200, 100)], op="office", page_w=200)
-        self.assertIsNone(w._sel_path)
+        self.assertEqual((w._sel_path, w._sel_op), ("/x.docx", "officetext"))
 
 
 if __name__ == "__main__":

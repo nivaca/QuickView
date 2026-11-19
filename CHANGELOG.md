@@ -17,6 +17,12 @@ project has no version tags yet, so entries are dated.
   with the same files as the source tarball under `quickview-VERSION/`
   (unzipped, it is ready for `./install.sh`). Each build replaces the
   older ones; `dist/` is not tracked by git.
+- **Select and copy text in office documents** (Word, LibreOffice and
+  the legacy formats LibreOffice opens), as in PDFs: from the PDF
+  LibreOffice makes of the document, or from QuickView's built-in
+  layout, whichever painted the pages (new worker op `officetext`). Every
+  page's text comes back from one conversion, so only the first press
+  waits for it.
 - **Dolphin's lost Space shortcut is noticed.** Dolphin 26.08 forgets
   the shortcut in its open windows whenever Configure Dolphin is applied
   (even with nothing changed) or its context-menu settings change, and

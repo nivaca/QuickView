@@ -267,6 +267,18 @@ def _reading_text(fn):
     return op
 
 
+def op_officetext(job, src, fd, out):
+    # Like "pdftext", for an office document's pages: from LibreOffice's PDF
+    # or the built-in layout, whichever painted them. Every page comes back,
+    # as the conversion behind them is the slow part.
+    if not isinstance(job.get("pages") or [], list):
+        raise RuntimeError("pages must be a list")
+    out.header(1)
+    out.json(renderers.office_text(fd, job.get("pages") or [], job["page_w"],
+                                   job["max_pages"],
+                                   job.get("engine", "libreoffice")))
+
+
 op_mdtext = _reading_text(renderers.markdown_text)
 op_epubtext = _reading_text(renderers.epub_text)
 
@@ -342,6 +354,7 @@ OPS = {
     "pdftext": op_pdftext,
     "mdtext": op_mdtext,
     "epubtext": op_epubtext,
+    "officetext": op_officetext,
     "archive": op_archive,
     "epub": op_epub,
     "markdown": op_markdown,

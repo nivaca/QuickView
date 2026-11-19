@@ -280,10 +280,10 @@ class DocumentViewMixin:
             find_bar.hide()
         # Selecting and copying text: a PDF's text layer places every word,
         # and a book or a Markdown file is laid out again in the jail, the
-        # way its pages were, to place them. (An office document's pages
-        # have neither to ask.)
+        # way its pages were, to place them; an office document's from the
+        # PDF LibreOffice made of it, or from the built-in layout.
         self._text_op = {"pdf": "pdftext", "markdown": "mdtext",
-                         "epub": "epubtext"}.get(op)
+                         "epub": "epubtext", "office": "officetext"}.get(op)
         if self._text_op:
             self.enable_text_selection(path, page_w, self._text_op, extra)
         self.zoomable_pages(path, op, page_w, extra)

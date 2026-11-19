@@ -7,9 +7,9 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Selecting the text of a rendered Markdown file or a book: the words and
-their boxes, from the layout the pages were painted with, and the page
-view asking for them.
+"""Selecting the text of a rendered Markdown file, a book or an office
+document: the words and their boxes, from the layout the pages were
+painted with, and the page view asking for them.
 """
 
 import json
@@ -34,7 +34,9 @@ import renderers  # noqa: E402
 import text_select  # noqa: E402
 import view_selection  # noqa: E402
 import worker  # noqa: E402
+from renderers import suite as r_suite  # noqa: E402 — patched where read
 from test_epub import SIMPLE, build_epub  # noqa: E402
+from test_office import build_docx, para  # noqa: E402
 
 PAGE_W = 400
 PAGE_H = int(PAGE_W * renderers.PAGE_RATIO)
@@ -133,6 +135,50 @@ class Book(unittest.TestCase):
         self.assertEqual(len(layers[0].words), len(page["words"]))
 
 
+DOCX = build_docx(para("Hello office world") + para("second paragraph")
+                  + para("next page", ppr="<w:pageBreakBefore/>"))
+
+
+def office_text(engine="builtin", pages=(0,)):
+    with in_file(DOCX) as fh:
+        return renderers.office_text(fh.fileno(), list(pages), PAGE_W, 50, engine)
+
+
+class Office(unittest.TestCase):
+    def setUp(self):
+        saved = r_suite.OFFICE_SUITES
+        self.addCleanup(setattr, r_suite, "OFFICE_SUITES", saved)
+
+    def test_the_built_in_layout_answers_every_page(self):
+        r_suite.OFFICE_SUITES = ()
+        out = office_text(pages=[0])
+        self.assertEqual(out["engine"], "layout")
+        first = out["pages"][0]
+        self.assertTrue(first["text"].startswith("Hello office world\nsecond paragraph"))
+        self.assertEqual(words_of(first), first["text"].split())
+        layers = text_select.parse(out, [(PAGE_W, PAGE_H)] * len(out["pages"]))
+        self.assertEqual(len(layers[0].words), len(first["words"]))
+
+    def test_a_failing_suite_falls_back_to_the_layout_that_painted(self):
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        fake = os.path.join(tmp.name, "soffice")
+        with open(fake, "w") as fh:
+            fh.write("#!/bin/sh\nexit 1\n")
+        os.chmod(fake, 0o755)
+        r_suite.OFFICE_SUITES = (fake,)
+        self.assertEqual(office_text(engine="libreoffice")["engine"], "layout")
+
+    @unittest.skipUnless(renderers.office_suite(), "LibreOffice not installed")
+    def test_libreoffice_pages_take_their_text_from_its_pdf(self):
+        out = office_text(engine="libreoffice", pages=[0])
+        self.assertIn(out["engine"], ("poppler", "qtpdf"))
+        self.assertEqual([p["page"] for p in out["pages"]], [0, 1],
+                         "every page, from one conversion")
+        self.assertIn("Hello office world", out["pages"][0]["text"])
+        self.assertIn("next page", out["pages"][1]["text"])
+
+
 class Out:
     def header(self, *args, **kw):
         pass
@@ -151,6 +197,16 @@ class WorkerOps(unittest.TestCase):
                                None, fh.fileno(), out)
                 self.assertEqual(out.value["pages"][0]["page"], 0)
                 self.assertTrue(out.value["pages"][0]["words"])
+
+    def test_officetext(self):
+        saved = r_suite.OFFICE_SUITES
+        self.addCleanup(setattr, r_suite, "OFFICE_SUITES", saved)
+        r_suite.OFFICE_SUITES = ()
+        with in_file(DOCX) as fh:
+            out = Out()
+            worker.OPS["officetext"]({"pages": [1], "page_w": PAGE_W, "max_pages": 50,
+                                      "engine": "libreoffice"}, None, fh.fileno(), out)
+        self.assertEqual([p["page"] for p in out.value["pages"]], [0, 1])
 
     def test_pages_must_be_a_list(self):
         with in_file(MARKDOWN.encode()) as fh, self.assertRaises(RuntimeError):
@@ -207,11 +263,27 @@ class View(unittest.TestCase):
         QTest.keyClick(self.w, Qt.Key_A, Qt.ControlModifier)
         self.assertEqual(FakeJob.made[-1].job["op"], "epubtext")
 
-    def test_an_office_document_has_nothing_to_select(self):
-        self.begin("office")
+    def test_an_office_document_asks_with_its_engine(self):
+        self.begin("office", {"name": "x.docx", "limit": 1024, "engine": "builtin"})
         QTest.keyClick(self.w, Qt.Key_A, Qt.ControlModifier)
-        self.assertEqual(FakeJob.made, [])
-        self.assertIsNone(self.w._sel_path)
+        job = FakeJob.made[-1].job
+        self.assertEqual((job["op"], job["engine"]), ("officetext", "builtin"))
+
+    def test_pages_answered_beyond_those_asked_are_kept(self):
+        self.w._pdf_begin_view("/x", 2, [(PAGE_W, PAGE_H)] * 2, op="office",
+                               page_w=PAGE_W, extra={"engine": "builtin"})
+        self.w.show()
+        QApplication.processEvents()
+        self.w._sel_need([0])
+        job = FakeJob.made[-1]
+        self.assertEqual(job.job["pages"], [0])
+        both = {"pages": [{"page": p, "text": "word", "words": [[0, 4, 1, 1, 9, 9, 0]]}
+                          for p in (0, 1)]}
+        job.on_frame(json.dumps(both).encode())
+        job.on_done(True, "")
+        self.assertEqual(sorted(self.w._sel_layers), [0, 1])
+        self.w._sel_need([1])
+        self.assertEqual(len(FakeJob.made), 1, "page 1 is known: no second job")
 
 
 if __name__ == "__main__":

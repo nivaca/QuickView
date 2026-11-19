@@ -360,6 +360,12 @@ class TextSelectionMixin:
             sizes = [(self.page_base(label).width(), self.page_base(label).height())
                      for label in self._pdf_labels]
             got = text_select.parse(payload, sizes)
+            # A worker may answer more pages than asked (an office document's
+            # come all at once, the conversion being the slow part): keep them.
+            for page, layer in got.items():
+                if page not in self._sel_layers:
+                    self._sel_layers[page] = layer
+            self._sel_pending.difference_update(got)
             for page in pages:
                 # A page the worker could not read counts as one with no
                 # text, rather than being asked for again on every move.

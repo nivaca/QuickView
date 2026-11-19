@@ -25,6 +25,7 @@ from .pdf import (
 from .suite import (
     office_suite,
     _pages_via_office_suite,
+    _text_via_office_suite,
 )
 
 
@@ -224,8 +225,43 @@ def office_pages(fd: int, name: str, page_w: int, max_pages: int, start: int = 0
                                         scale)
 
 
+def office_text(fd: int, pages: list, page_w: int, max_pages: int,
+                engine: str = "libreoffice") -> dict:
+    """The selectable text of an office document's pages, in the shape of
+    pdf.page_text, from the layout office_pages() paints with: LibreOffice's
+    PDF when office_pages() would use it, falling back the same way, or the
+    built-in layout.
+
+    Every page is answered, whichever were asked for: a LibreOffice
+    conversion costs about a second, which is paid once rather than on each
+    page the reader presses on.
+    """
+    import sys
+
+    every = list(range(max_pages))
+    if engine != "builtin" and office_suite():
+        try:
+            return _text_via_office_suite(fd, page_w, max_pages)
+        except Exception as exc:
+            print("office suite: %s — using the built-in layout" % exc,
+                  file=sys.stderr)
+    page_h = int(page_w * PAGE_RATIO)
+    doc = _office_document(fd, page_w)
+    return document_text(doc, every, page_w, page_h,
+                         min(doc.pageCount(), max_pages))
+
+
 def _pages_via_qtextdocument(fd: int, name: str, page_w: int, max_pages: int,
                              start: int = 0, scale: float = 1.0):
+    page_h = int(page_w * PAGE_RATIO)
+    doc = _office_document(fd, page_w)
+    count = min(doc.pageCount(), max_pages)
+    yield from _document_pages(doc, page_w, page_h, count, start,
+                               scale=scale)
+
+
+def _office_document(fd: int, page_w: int):
+    """The document as a paginated QTextDocument, via the HTML subset."""
     import zipfile
 
     from PySide6.QtCore import QSizeF, QUrl
@@ -253,9 +289,7 @@ def _pages_via_qtextdocument(fd: int, name: str, page_w: int, max_pages: int,
                     )
             doc.setHtml(body)
             doc.setPageSize(QSizeF(page_w, page_h))
-            count = min(doc.pageCount(), max_pages)
-            yield from _document_pages(doc, page_w, page_h, count, start,
-                                       scale=scale)
+            return doc
 
 
 def _document_pages(doc, page_w: int, page_h: int, count: int, start: int,

@@ -14,6 +14,7 @@ from .base import (
     _rewound,
 )
 from .pdf import (
+    page_text,
     render_pdf,
 )
 
@@ -321,6 +322,26 @@ def _pages_via_office_suite(fd: int, page_w: int, max_pages: int, start: int = 0
         with tempfile.TemporaryDirectory(prefix="qv-office-") as tmp:
             pdf = _suite_convert(fh, kind, "pdf", tmp)
             yield from render_pdf(pdf, page_w, max_pages, start, scale)
+
+
+def _text_via_office_suite(fd: int, page_w: int, max_pages: int) -> dict:
+    """Every page's selectable text, from the PDF LibreOffice makes of the
+    document: the same conversion _pages_via_office_suite renders."""
+    import os
+    import tempfile
+
+    with _rewound(fd) as fh:
+        kind = _office_suite_kind(fh)
+        if not kind:
+            raise RuntimeError("not a document LibreOffice is used for")
+        with tempfile.TemporaryDirectory(prefix="qv-office-") as tmp:
+            pdf = _suite_convert(fh, kind, "pdf", tmp)
+            pdf_fd = os.open(pdf, os.O_RDONLY)
+            try:
+                return page_text(pdf, pdf_fd, list(range(max_pages)), page_w,
+                                 max_pages)
+            finally:
+                os.close(pdf_fd)
 
 
 def _suite_convert(fh, kind: str, target: str, tmp: str) -> str:
