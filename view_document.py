@@ -57,6 +57,15 @@ from widgets import (
 from view_zoom import label_zoom
 
 
+TOC_MAX_LEVEL = 16
+
+
+def clean_toc(entries) -> list:
+    """A table of contents from a worker or the disk cache: the dict
+    entries of a list, nothing else."""
+    return [e for e in entries if isinstance(e, dict)] if isinstance(entries, list) else []
+
+
 def clean_hits(matches) -> list:
     """A worker's search matches, keeping only well-formed ones:
     {"page": int >= 0, "rects": [[x, y, w, h] of numbers, ...]}. The worker
@@ -137,7 +146,7 @@ class DocumentViewMixin:
         cached_toc = cache_read(toc_key)
         if cached_toc is not None:
             try:
-                self._toc_entries = json.loads(cached_toc)
+                self._toc_entries = clean_toc(json.loads(cached_toc))
             except ValueError:
                 cache_remove(toc_key)
                 cached_toc = None
@@ -361,7 +370,7 @@ class DocumentViewMixin:
         cached_toc = cache_read(toc_key)
         if cached_toc is not None:
             try:
-                self._toc_entries = json.loads(cached_toc)
+                self._toc_entries = clean_toc(json.loads(cached_toc))
             except ValueError:
                 cache_remove(toc_key)
                 cached_toc = None
@@ -415,7 +424,7 @@ class DocumentViewMixin:
         cached_toc = cache_read(toc_key)
         if cached_toc is not None:
             try:
-                self._toc_entries = json.loads(cached_toc)
+                self._toc_entries = clean_toc(json.loads(cached_toc))
             except ValueError:
                 cache_remove(toc_key)
 
@@ -517,7 +526,7 @@ class DocumentViewMixin:
         """Adopt a table of contents, cache it, and show its button."""
         if path != self.current_path:
             return  # the reader moved on while the worker was parsing
-        entries = [e for e in entries if isinstance(e, dict)]
+        entries = clean_toc(entries)
         self._toc_entries = entries
         if toc_key:
             # Cached even when empty: that a document has no contents is
@@ -559,7 +568,9 @@ class DocumentViewMixin:
                 continue
             try:
                 page = int(entry.get("page", 0))
-                level = max(0, int(entry.get("level", 0)))
+                # Bounded: the parent search below walks every level down
+                # from this one, and the number comes from the worker.
+                level = min(max(0, int(entry.get("level", 0))), TOC_MAX_LEVEL)
             except (TypeError, ValueError):
                 continue
             parent = None

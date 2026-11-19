@@ -272,7 +272,9 @@ class ImageViewMixin:
                 return
             if len(payload) < 4:  # the worker is untrusted: no short reads
                 return
-            delay = struct.unpack(">I", payload[:4])[0]
+            # The worker floors it at 10 ms; so does this, as the worker
+            # is the side that parsed the file. 0 would spin the timer.
+            delay = max(struct.unpack(">I", payload[:4])[0], 10)
             img = decode_frame(payload[4:])
             if img.isNull():
                 return

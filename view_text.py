@@ -171,6 +171,9 @@ class TextViewMixin:
                 start, length, index = span
             except (TypeError, ValueError):
                 continue
+            if not all(isinstance(v, int) and not isinstance(v, bool)
+                       for v in (start, length, index)):
+                continue
             if not 0 <= index < len(formats):
                 continue
             if not 0 <= start < end or length <= 0 or start + length > end:
@@ -333,14 +336,18 @@ class TextViewMixin:
                 name, size = entry
             except (TypeError, ValueError):
                 continue
+            if isinstance(size, bool) or not isinstance(size, int) or size < 0:
+                size = 0
             rows.append(
                 f"{name}    {human_size(size)}" if size else str(name)
             )
         if listing.get("truncated"):
             # count is a floor, not a total, when the lister stopped early —
             # subtracting from it would invent a number.
-            if listing.get("count_exact", True):
-                rows.append(f"... and {listing.get('count', 0) - len(rows)} more")
+            count = listing.get("count", 0)
+            if listing.get("count_exact", True) and isinstance(count, int) \
+                    and not isinstance(count, bool) and count > len(rows):
+                rows.append(f"... and {count - len(rows)} more")
             else:
                 rows.append("... and more")
 

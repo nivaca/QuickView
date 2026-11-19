@@ -28,6 +28,7 @@ _app = QApplication.instance() or QApplication([sys.argv[0]])
 
 import common  # noqa: E402
 import view_document  # noqa: E402
+import view_media  # noqa: E402
 import quickview  # noqa: E402
 import sandbox  # noqa: E402
 
@@ -176,6 +177,63 @@ class Find(unittest.TestCase):
             "x", {"page": "1", "rects": [[1, 1, 1, 1]]}, {"page": 0, "rects": [[1, 1]]},
             {"page": 1, "rects": [[1, 1, 1, 1e999]]}, {"page": 1, "rects": [[3, 3, 4, 4]]}])
         self.assertEqual(self.w._find_hits, [{"page": 1, "rects": [[3.0, 3.0, 4.0, 4.0]]}])
+
+
+class WorkerAnswers(unittest.TestCase):
+    """Shapes a compromised worker could send, each of which used to
+    freeze or break the panel."""
+
+    def setUp(self):
+        signal.signal(signal.SIGALRM, lambda *_: (_ for _ in ()).throw(
+            AssertionError("hung on a worker answer")))
+        signal.alarm(10)
+        self.addCleanup(signal.alarm, 0)
+        self.w = quickview.QuickView()
+        self.addCleanup(self.w.deleteLater)
+
+    def test_a_huge_contents_level_does_not_hang(self):
+        self.w._page_scale = 1.0
+        self.w.current_path = "/x.pdf"
+        self.w._pdf_begin_view("/x.pdf", 1, [(200, 100)], op="pdf", page_w=200)
+        self.w._set_toc("/x.pdf", [{"title": "a", "level": 10**12, "page": 0},
+                                   "junk", {"title": "b", "level": "x"}])
+        self.assertEqual(len(self.w._toc_entries), 2)
+
+    def test_a_contents_cache_entry_that_is_not_a_list(self):
+        self.assertEqual(view_document.clean_toc({"title": "a"}), [])
+        self.assertEqual(view_document.clean_toc(7), [])
+
+    def test_a_header_that_is_not_an_object_fails_the_job(self):
+        import socket
+        from PySide6.QtCore import QTimer
+        ours, theirs = socket.socketpair()
+        self.addCleanup(ours.close)
+        self.addCleanup(theirs.close)
+
+        class Worker:
+            sock = ours
+
+        job = sandbox.SandboxJob.__new__(sandbox.SandboxJob)
+        results = []
+        job._done, job._complete, job._header, job.header = False, False, None, {}
+        job._buf, job._worker, job._timeout_ms = bytearray(), Worker(), 1000
+        job._watchdog = QTimer()
+        job._on_frame = lambda data: None
+        job._finish = lambda ok, error="": results.append((ok, error))
+        payload = b"[1, 2]"
+        theirs.sendall(len(payload).to_bytes(4, "big") + payload)
+        job._readable()
+        self.assertEqual(results, [(False, "malformed worker header")])
+
+    def test_player_times_are_bounded_ints(self):
+        for value, want in ((5, 5), (-3, 0), (2**40, 2**31 - 1), ("7", 0),
+                            (None, 0), (True, 0), (float("inf"), 0), (1.9, 1)):
+            with self.subTest(value=value):
+                self.assertEqual(view_media._millis(value), want)
+
+    def test_colour_spans_that_are_not_ints_are_skipped(self):
+        self.w._show_text_widget("hello world", spans=[["0", 5, 0], [0, 5, "0"], [0, 5, 0]],
+                                 styles=["#ff0000"])
 
 
 if __name__ == "__main__":

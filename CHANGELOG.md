@@ -59,6 +59,12 @@ project has no version tags yet, so entries are dated.
 
 ### Security
 
+- **More of what the workers send is checked before use**: a contents
+  entry's level (a huge one froze the daemon), a header that is not an
+  object, player messages and times, colour spans, archive sizes and
+  counts, an animation's frame delay (0 spun the timer), and a cached
+  table of contents. A player message too large to read now ends the
+  preview with an error instead of leaving dead controls.
 - **The daemon decodes only PNG and JPEG.** Pages and frames from the
   workers, disk-cache entries and an office file's embedded thumbnail
   were decoded with Qt's format sniffing, so a slide deck whose

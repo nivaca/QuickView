@@ -471,6 +471,9 @@ class MediaSession(QObject):
             if n > MAX_FRAME_BYTES or len(self._buf) < 4 + n:
                 if n > MAX_FRAME_BYTES:
                     self.stop()
+                    # Said, so the panel falls back rather than keeping
+                    # controls that no longer drive anything.
+                    self._handlers["error"]("oversized message from the player")
                 return
             try:
                 msg = json.loads(bytes(self._buf[4:4 + n]))
@@ -481,6 +484,8 @@ class MediaSession(QObject):
             self._dispatch(msg)
 
     def _dispatch(self, msg: dict):
+        if not isinstance(msg, dict):
+            return  # the worker is untrusted: only objects are messages
         kind = msg.get("t")
         if kind == "frame":
             img = self.read_frame(msg)
@@ -682,6 +687,10 @@ class SandboxJob(QObject):
                 try:
                     self._header = json.loads(payload)
                 except ValueError:
+                    self._finish(False, "malformed worker header")
+                    return
+                if not isinstance(self._header, dict):
+                    self._header = None
                     self._finish(False, "malformed worker header")
                     return
                 self.header = self._header

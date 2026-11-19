@@ -47,6 +47,17 @@ def _clock(ms) -> str:
     return f"{s // 60}:{s % 60:02d}"
 
 
+
+def _millis(value) -> int:
+    """A time from the player, in ms, as an int a QSlider can take: the
+    player is the process decoding an untrusted file."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return 0
+    try:
+        return max(0, min(int(value), 2**31 - 1))
+    except (OverflowError, ValueError):
+        return 0
+
 class PlaybackBar(QWidget):
     """The row under a playing file: play/pause, timeline, time, speed, mute.
 
@@ -123,11 +134,13 @@ class PlaybackBar(QWidget):
 
     # -------------------------------------------------- player → the row
     def set_duration(self, ms):
+        ms = _millis(ms)
         self.duration = ms
         self.slider.setRange(0, ms)
         self.fit_time_label()
 
     def set_position(self, p):
+        p = _millis(p)
         if self.slider.isSliderDown():
             # Mid-drag: the player is still reporting where it was, and
             # writing that back would drag the handle out from under the
