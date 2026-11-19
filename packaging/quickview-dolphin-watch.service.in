@@ -17,7 +17,7 @@ After=graphical-session.target
 PartOf=graphical-session.target
 
 [Service]
-ExecStart=@PYTHON@ @APPDIR@/dolphin_watch.py
+ExecStart="@PYTHON@" "@APPDIR@/dolphin_watch.py"
 Restart=on-failure
 RestartSec=30
 

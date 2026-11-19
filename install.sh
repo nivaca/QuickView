@@ -244,18 +244,26 @@ fi
 # Dolphin context-menu entry ("Quick Look"), rendered from the template so
 # the repo can live at any path. KDE requires the .desktop file in
 # servicemenus to carry the executable bit.
+# The checkout's path goes into sed replacements and unit files, where
+# "|", "&" and "\" mean something to sed and "%" to systemd: escaped, so
+# a checkout anywhere installs.
+sed_escape() { printf '%s' "$1" | sed 's/[\\|&]/\\&/g'; }
+DIR_S="$(sed_escape "$DIR")"
+UNIT_DIR_S="$(sed_escape "${DIR//%/%%}")"
+UNIT_PY_S="$(sed_escape "${PY//%/%%}")"
+
 mkdir -p "$HOME/.local/share/kio/servicemenus"
 MENU_DEST="$HOME/.local/share/kio/servicemenus/quickview-servicemenu.desktop"
 # Remove any prior entry first. An older install symlinked this path back to
 # the repo template; without this rm, the redirect below would follow that
 # symlink and truncate its own source before sed could read it.
 rm -f "$MENU_DEST"
-sed "s|@DIR@|$DIR|" "$DIR/quickview-servicemenu.desktop" > "$MENU_DEST"
+sed "s|@DIR@|$DIR_S|g" "$DIR/quickview-servicemenu.desktop" > "$MENU_DEST"
 chmod +x "$MENU_DEST"
 
 # The settings window, in the application menu (and KRunner).
 mkdir -p "$HOME/.local/share/applications"
-sed "s|@DIR@|$DIR|" "$DIR/quickview-settings.desktop" \
+sed "s|@DIR@|$DIR_S|g" "$DIR/quickview-settings.desktop" \
     > "$HOME/.local/share/applications/quickview-settings.desktop"
 command -v update-desktop-database >/dev/null 2>&1 &&
     update-desktop-database "$HOME/.local/share/applications" 2>/dev/null || true
@@ -282,11 +290,11 @@ if command -v systemctl >/dev/null 2>&1; then
     rm -f "${XDG_RUNTIME_DIR:-/tmp}/quickview-$(id -u)"
     # The same units the RPM installs (packaging/), pointed at this
     # checkout's launcher.
-    sed -e "s|@PYTHON@|$PY|" -e "s|@APPDIR@|$DIR|" "$DIR/packaging/quickview.socket.in" \
+    sed -e "s|@PYTHON@|$UNIT_PY_S|" -e "s|@APPDIR@|$UNIT_DIR_S|" "$DIR/packaging/quickview.socket.in" \
         > "$HOME/.config/systemd/user/quickview.socket"
-    sed "s|@QUICKVIEW@|$DIR/bin/quickview|" "$DIR/packaging/quickview.service.in" \
+    sed "s|@QUICKVIEW@|$UNIT_DIR_S/bin/quickview|" "$DIR/packaging/quickview.service.in" \
         > "$HOME/.config/systemd/user/quickview.service"
-    sed -e "s|@PYTHON@|$PY|" -e "s|@APPDIR@|$DIR|" \
+    sed -e "s|@PYTHON@|$UNIT_PY_S|" -e "s|@APPDIR@|$UNIT_DIR_S|" \
         "$DIR/packaging/quickview-dolphin-watch.service.in" \
         > "$HOME/.config/systemd/user/quickview-dolphin-watch.service"
     rm -f "$HOME/.config/autostart/quickview-daemon.desktop"

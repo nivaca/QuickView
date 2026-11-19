@@ -51,6 +51,10 @@ project has no version tags yet, so entries are dated.
   run it by hand (see the README).
 - **The Dolphin shortcut lands in the right section** of Dolphin's
   settings when the file has more than one shortcut scheme.
+- **A checkout in a folder with spaces installs properly.** The socket
+  unit's Dolphin step split such a path and failed silently, so the
+  shortcut was never set; the units quote their commands now, and
+  `install.sh` escapes the path for sed (`|`, `&`) and systemd (`%`).
 - **Find shows the answer to the latest search only.** A slower answer
   to an earlier search could land under the new query, or once the
   document changed, be painted on the next one. Malformed matches from
