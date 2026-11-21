@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        1.0.0
+Version:        1.0.1
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -159,6 +159,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Sat Nov 21 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.1-1
+- The open-source software QuickView uses, and their licenses
+
 * Thu Nov 19 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.0-1
 - An index sheet for a multi-file selection
 - Select and copy text in office documents
