@@ -5,6 +5,14 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Added
+
+- **The open-source software QuickView uses, and their licenses**, listed
+  in `docs/THIRD-PARTY.md`: what it needs to run, what it uses when
+  installed, and what builds and releases it.
+
 ## 1.0.0 — 2026-11-19
 
 QuickView 1.0. Besides what is listed below, the whole program was

@@ -17,7 +17,9 @@ or later.  It is written with PySide6, the Python binding of Qt 6 (LGPL
 makes the jail in which every file is read.  Two external programs are
 used when they are installed, and never linked: `pdftotext`, from Poppler
 (GPL 2.0 or later), for the text of PDFs, and LibreOffice (MPL 2.0) for
-the exact layout of office documents.
+the exact layout of office documents.  The full list of the open-source
+software QuickView uses, and their licenses, is in
+[THIRD-PARTY.md](THIRD-PARTY.md).
 
 Nicolas Vaughan is Associate Professor of Literature at the School of Arts
 and Humanities of the Universidad de los Andes, Bogotá, Colombia.
@@ -176,5 +178,5 @@ The new worker operations were also tried inside the real jail, and the
 views were checked by eye, by saving pictures of the panel drawn
 offscreen.  The diagnosis of the lost Dolphin shortcut was made by reading
 Dolphin's source, and the watch was tried against a running Dolphin
-without closing it.  The repository has 96 files and around 23,000 lines,
+without closing it.  The repository has 100 files and around 23,000 lines,
 of which about 7,200 are tests.

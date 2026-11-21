@@ -1,4 +1,4 @@
-# QuickView 1.0.0: descripción
+# QuickView 1.0.1: descripción
 
 ## Análisis
 
@@ -22,7 +22,7 @@ Para Dolphin hay dos piezas más. `dolphin_shortcut.py` escribe el atajo en la c
 
 ## Implementación
 
-Está escrito en Python 3.15 o posterior, con PySide6 (Qt 6, LGPL 3.0), cuyo módulo QtPdf dibuja los PDF con PDFium; Pygments colorea el código, y el cliente rápido está en Rust, con solo su biblioteca estándar. El repositorio tiene 96 archivos y unas 23 000 líneas, de las cuales unas 7200 son pruebas.
+Está escrito en Python 3.15 o posterior, con PySide6 (Qt 6, LGPL 3.0), cuyo módulo QtPdf dibuja los PDF con PDFium; Pygments colorea el código, y el cliente rápido está en Rust, con solo su biblioteca estándar. La lista completa del software libre que usa, con sus licencias, está en `docs/THIRD-PARTY.md`. El repositorio tiene 100 archivos y unas 23 000 líneas, de las cuales unas 7200 son pruebas.
 
 ### La jaula y lo que sale de ella
 

@@ -999,6 +999,9 @@ GPL-3.0-or-later. See [LICENSE](LICENSE). The original is
 copyright © 2026 Mustapha Alioglou; the changes in this fork are
 copyright © 2026 Nicolas Vaughan, under the same license.
 
+The open-source software QuickView uses, and its licenses, are listed in
+[docs/THIRD-PARTY.md](docs/THIRD-PARTY.md). None of it is bundled.
+
 The screenshots show KDE's default *Next* wallpaper and the manual of hwloc,
 both from the system's own packages, and are taken by `tools/screenshots.py`:
 

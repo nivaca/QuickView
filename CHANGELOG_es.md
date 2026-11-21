@@ -6,6 +6,14 @@ las entradas llevan fecha.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 1.0.1 — 2026-11-21
+
+### Nuevo
+
+- **El software libre que usa QuickView, con sus licencias**, en
+  `docs/THIRD-PARTY.md`: lo que necesita para funcionar, lo que usa si
+  está instalado y lo que sirve para construirlo y publicarlo.
+
 ## 1.0.0 — 2026-11-19
 
 QuickView 1.0. Además de lo que se enumera abajo, todo el programa se
