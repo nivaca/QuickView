@@ -96,8 +96,36 @@ class Offer(Base):
         self.assertTrue(w.settle.isActive())
         w.settle.stop()
         w.fire()
-        w.fire()  # the first is still on screen
         self.assertEqual(len(w.asked), 1)
+
+    def test_a_loss_while_one_waits_renews_it(self):
+        # Before 1.0.2 the watch went deaf while a notification waited,
+        # as one does in Plasma's history after its popup fades.
+        w = Fake()
+        w.fire()
+        w.fire()
+        self.assertEqual(len(w.asked), 2)
+        w.asked[0](True)  # the replaced one: its answer is ignored
+        self.assertEqual((Interface.calls, w.notifying), ([], True))
+        w.asked[1](True)
+        self.assertEqual(len(Interface.calls), 1)
+        self.assertFalse(w.notifying)
+        w.poll.stop()
+
+    def test_the_notification_is_critical_and_can_be_replaced(self):
+        w = Fake()
+        args = w.notify_args()
+        self.assertIn("--urgency=critical", args)
+        self.assertIn("--print-id", args)
+        self.assertFalse(any(a.startswith("--replace-id") for a in args))
+        self.assertIn("--replace-id=17", w.notify_args(17))
+        self.assertEqual(args[-2:], [dw.SUMMARY, dw.BODY])
+
+    def test_notify_send_output(self):
+        self.assertEqual(dw.parse_notify_output("17\n"), (17, ""))
+        self.assertEqual(dw.parse_notify_output("17\nrestart\n"), (17, "restart"))
+        self.assertEqual(dw.parse_notify_output(""), (None, ""))
+        self.assertEqual(dw.parse_notify_output("restart\n"), (None, "restart"))
 
     def test_no_notification_without_an_open_dolphin(self):
         w = Fake(running=())

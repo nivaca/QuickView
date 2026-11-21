@@ -1,4 +1,4 @@
-# QuickView 1.0.1: descripción
+# QuickView 1.0.2: descripción
 
 ## Análisis
 
@@ -18,7 +18,7 @@ El panel es una ventana hecha de piezas (mixins), una por tipo de vista: `view_i
 
 Las páginas ya dibujadas se guardan en una caché en disco, con el archivo, su fecha y su tamaño como clave, y las imágenes decodificadas en una caché en memoria. El demonio lo arranca systemd con la primera pulsación, mediante un socket siempre abierto, y puede salir cuando lleva un rato sin uso; la configuración vive en `~/.config/quickview/quickview.conf` y se aplica en cuanto se guarda.
 
-Para Dolphin hay dos piezas más. `dolphin_shortcut.py` escribe el atajo en la copia de la configuración de Dolphin del usuario, y `dolphin_watch.py` es un servicio pequeño que avisa cuando Dolphin lo pierde.
+Para Dolphin hay dos piezas más. `dolphin_shortcut.py` escribe el atajo en la copia de la configuración de Dolphin del usuario, y `dolphin_watch.py` es un servicio pequeño que avisa cuando Dolphin lo pierde. El aviso es una notificación crítica, que Plasma deja en pantalla hasta que se responde; si el atajo vuelve a perderse mientras espera, se reemplaza por uno nuevo (hasta la versión 1.0.1, el vigilante callaba mientras hubiera un aviso sin responder en el historial).
 
 ## Implementación
 
@@ -38,7 +38,7 @@ Dolphin 26.08 olvida los atajos de los menús de servicio en sus ventanas abiert
 
 ## Validación
 
-Hay 495 pruebas automáticas, en 33 archivos, que corren en unos doce segundos sin pantalla (las de Qt usan la plataforma `offscreen`); GitHub Actions las corre con cada push. Cubren el enrutamiento de cada tipo de archivo, los decodificadores, la jaula y la verificación de lo que devuelve, la caché, la configuración, la selección de texto, el zoom, la cuadrícula, el atajo de Dolphin y su vigilante, el paquete y el guion de publicación. Las pruebas del vigilante usan sustitutos y no envían nada al bus de sesión real, donde un vigilante instalado las oiría; las de LibreOffice se saltan donde no está instalado.
+Hay 498 pruebas automáticas, en 33 archivos, que corren en unos doce segundos sin pantalla (las de Qt usan la plataforma `offscreen`); GitHub Actions las corre con cada push. Cubren el enrutamiento de cada tipo de archivo, los decodificadores, la jaula y la verificación de lo que devuelve, la caché, la configuración, la selección de texto, el zoom, la cuadrícula, el atajo de Dolphin y su vigilante, el paquete y el guion de publicación. Las pruebas del vigilante usan sustitutos y no envían nada al bus de sesión real, donde un vigilante instalado las oiría; las de LibreOffice se saltan donde no está instalado.
 
 Varias pruebas reproducen fallos encontrados en una revisión completa del código antes de la versión 1.0: la miniatura falsa de una presentación, la tubería con nombre que congelaba el demonio, los nombres de archivo que no son UTF-8, una búsqueda lenta que pintaba sus resultados en el documento siguiente y respuestas malformadas del trabajador. Se comprobó, además, que esas pruebas fallaban con el código anterior.
 

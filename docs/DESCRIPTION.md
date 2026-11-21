@@ -8,7 +8,7 @@ video, source code, an archive), and Space again closes it.  Mustapha
 Alioglou wrote the first versions between June and October 2026.  Nicolas
 Vaughan made a fork of it in November 2026, and the fork is the program
 described here, which reached version 1.0 on 19 November 2026.  Here I
-explain how it was made, in seven stages.
+explain how it was made, in eight stages.
 
 QuickView is free software, under the GNU General Public License, version 3
 or later.  It is written with PySide6, the Python binding of Qt 6 (LGPL
@@ -162,10 +162,28 @@ names that are not UTF-8 showed nothing, and a slow search could paint its
 results on the next document.  More of what the workers send is now
 checked before it is used.
 
+8. After 1.0
+------------
+
+Version 1.0.1 only adds a document, `docs/THIRD-PARTY.md`, with the
+open-source software QuickView uses and the license of each.
+
+Version 1.0.2 corrects the Dolphin watch, which had kept silent when it
+should have spoken.  It showed one notification at a time and waited for
+an answer before showing another.  But in Plasma a notification with a
+button keeps waiting after its popup has faded into the history, so if
+the first was not answered (because Dolphin had been restarted by hand,
+for instance), every later loss of the shortcut passed without a word.
+I found it by sending the watch a false signal from Dolphin while a
+notification waited: nothing was logged and nothing appeared.  Now a new
+loss replaces the waiting notification with a fresh one, and the
+notification is critical, so Plasma keeps it on screen until it is
+answered.
+
 Testing
 -------
 
-There are 495 automatic tests, in 33 files, which run in about twelve
+There are 498 automatic tests, in 33 files, which run in about twelve
 seconds without a display (the Qt ones run offscreen); GitHub Actions runs
 them with each push.  They cover the routing of each kind of file, the
 decoders, the jail and the checks of what comes out of it, the cache, the

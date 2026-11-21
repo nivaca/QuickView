@@ -6,6 +6,23 @@ las entradas llevan fecha.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## 1.0.2 — 2026-11-21
+
+### Correcciones
+
+- **El vigilante de Dolphin ya no se queda callado tras un aviso sin
+  responder.** Mostraba un aviso a la vez, y en Plasma una notificación
+  con un botón sigue esperando después de que su ventanita pasa al
+  historial; mientras nadie la respondiera allí, cada nueva pérdida del
+  atajo Espacio de Dolphin pasaba sin aviso. Ahora una pérdida nueva
+  reemplaza el aviso pendiente por uno nuevo.
+
+### Cambios
+
+- El aviso del vigilante de Dolphin es una notificación crítica, así que
+  Plasma la deja en pantalla hasta que se elige **Restart Dolphin** o
+  se cierra.
+
 ## 1.0.1 — 2026-11-21
 
 ### Nuevo

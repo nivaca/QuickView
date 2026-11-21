@@ -5,6 +5,22 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Fixed
+
+- **The Dolphin watch no longer goes quiet after a notification you did
+  not answer.** It showed one notification at a time, and in Plasma a
+  notification with a button keeps waiting after its popup fades into
+  the history; until it was answered there, every later loss of Dolphin's
+  Space shortcut went unnoticed. Now a new loss replaces the waiting
+  notification with a fresh one.
+
+### Changed
+
+- The Dolphin watch's notification is critical, so Plasma keeps it on
+  screen until you choose **Restart Dolphin** or close it.
+
 ## 1.0.1 — 2026-11-21
 
 ### Added

@@ -721,7 +721,8 @@ uses it from its next start.
   again, so QuickView also watches for the moment Dolphin drops it (a
   small background service, `quickview-dolphin-watch`, listening for
   Dolphin's own D-Bus signals) and shows a notification with a **Restart
-  Dolphin** button. The restart closes each window as its close button
+  Dolphin** button. The notification stays on screen until you answer it,
+  and a new loss while it waits replaces it with a fresh one. The restart closes each window as its close button
   would, so Dolphin still asks before closing several tabs. Dolphin 26.12
   keeps the shortcut, and with it the watch exits at once.
 - Space you gave to Selection Mode or any other action stays yours: the

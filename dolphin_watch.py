@@ -27,6 +27,11 @@ on, a notification offers "Restart Dolphin". That closes each window the
 way its own close button would (Dolphin still asks before closing several
 tabs) and, once Dolphin has gone, starts it again as Plasma would.
 
+The notification is critical, so Plasma keeps it on screen until it is
+answered. Another loss while it is still waiting (say Dolphin was
+restarted by hand, then its settings applied again) replaces it with a
+fresh one, rather than being ignored until the first is answered.
+
 Run by quickview-dolphin-watch.service for the graphical session. QtCore
 and QtDBus only, no widgets.
 """
@@ -57,6 +62,16 @@ SUMMARY = "Space no longer opens Quick Look in Dolphin"
 BODY = ("Dolphin 26.08 forgets service-menu shortcuts when its settings are "
         "applied, until it is restarted. Restarting Dolphin brings Space "
         "back; the Dolphin windows open now will close.")
+
+
+def parse_notify_output(text: str):
+    """(notification id or None, chosen action or "") from what
+    `notify-send --print-id --action=...` prints: the id on the first line,
+    then the action's name, if one is chosen."""
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    if not lines or not lines[0].isdigit():
+        return None, lines[-1] if lines else ""
+    return int(lines[0]), lines[1] if len(lines) > 1 else ""
 
 
 def log(text: str):
@@ -132,6 +147,9 @@ class Watcher(QObject):
         self.notify = notify or self._notify
         self.launch = launch or self._launch
         self.notifying = False
+        self.generation = 0   # which notification an answer belongs to
+        self._proc = None     # the notify-send waiting for an answer
+        self._note_id = None  # its notification's id, to replace it
         self.settle = QTimer(self)
         self.settle.setSingleShot(True)
         self.settle.setInterval(SETTLE_MS)
@@ -164,12 +182,19 @@ class Watcher(QObject):
             return
         if not self.dolphins():
             return  # nothing open has lost anything
-        if self.notifying or self.closing is not None:
-            return
-        log("Dolphin dropped its shortcuts; offering a restart")
+        if self.closing is not None:
+            return  # the restart under way brings the shortcut back
+        if self.notifying:
+            log("Dolphin dropped its shortcuts again; renewing the notification")
+        else:
+            log("Dolphin dropped its shortcuts; offering a restart")
         self.notifying = True
+        self.generation += 1
+        generation = self.generation
 
         def chosen(restart: bool):
+            if generation != self.generation:
+                return  # a later notification replaced this one
             self.notifying = False
             if restart:
                 self.restart()
@@ -203,21 +228,50 @@ class Watcher(QObject):
                 "not restarted")
 
     # ------------------------------------------------------ the desktop
+    def notify_args(self, replace_id=None) -> list:
+        args = ["--app-name=QuickView", "--icon=document-preview",
+                "--urgency=critical", "--print-id",
+                "--action=restart=Restart Dolphin"]
+        if replace_id is not None:
+            args.append(f"--replace-id={replace_id}")
+        return args + [SUMMARY, BODY]
+
     def _notify(self, chosen):
+        old = self._proc
         proc = QProcess(self)
         proc.setProgram("notify-send")
-        proc.setArguments(["--app-name=QuickView", "--icon=document-preview",
-                           "--action=restart=Restart Dolphin", SUMMARY, BODY])
+        proc.setArguments(self.notify_args(self._note_id if old else None))
+        self._proc = proc
+        output = []
+
+        def read():
+            output.append(bytes(proc.readAllStandardOutput()).decode(errors="replace"))
+            note_id, _ = parse_notify_output("".join(output))
+            if proc is self._proc and note_id is not None:
+                self._note_id = note_id
 
         def finished(*_args):
-            answer = bytes(proc.readAllStandardOutput()).decode(errors="replace")
+            read()
             proc.deleteLater()
-            chosen(answer.strip() == "restart")
+            if proc is not self._proc:
+                return  # replaced, and killed on purpose
+            self._proc = self._note_id = None
+            chosen(parse_notify_output("".join(output))[1] == "restart")
 
+        def failed(*_args):
+            if proc is self._proc:
+                log("notify-send failed")
+                self._proc = self._note_id = None
+                chosen(False)
+
+        proc.readyReadStandardOutput.connect(read)
         proc.finished.connect(finished)
-        proc.errorOccurred.connect(lambda *_: (log("notify-send failed"),
-                                               chosen(False)))
+        proc.errorOccurred.connect(failed)
         proc.start()
+        if old is not None:
+            # SIGKILL, so that the old notify-send cannot close, on its
+            # way out, the notification the new one has just taken over.
+            old.kill()
 
     @staticmethod
     def _launch():
