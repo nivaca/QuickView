@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        1.0.2
+Version:        1.0.3
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -159,6 +159,9 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Sun Nov 22 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.3-1
+- Every release signed
+
 * Sat Nov 21 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.2-1
 - The Dolphin watch no longer goes quiet after a notification you did
   not answer
