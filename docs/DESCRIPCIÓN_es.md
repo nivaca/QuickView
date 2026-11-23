@@ -1,4 +1,4 @@
-# QuickView 1.0.2: descripción
+# QuickView 1.0.3: descripción
 
 ## Análisis
 
