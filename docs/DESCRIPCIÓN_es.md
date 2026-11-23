@@ -22,7 +22,7 @@ Para Dolphin hay dos piezas más. `dolphin_shortcut.py` escribe el atajo en la c
 
 ## Implementación
 
-Está escrito en Python 3.15 o posterior, con PySide6 (Qt 6, LGPL 3.0), cuyo módulo QtPdf dibuja los PDF con PDFium; Pygments colorea el código, y el cliente rápido está en Rust, con solo su biblioteca estándar. La lista completa del software libre que usa, con sus licencias, está en `docs/THIRD-PARTY.md`. El repositorio tiene 100 archivos y unas 23 000 líneas, de las cuales unas 7200 son pruebas.
+Está escrito en Python 3.15 o posterior, con PySide6 (Qt 6, LGPL 3.0), cuyo módulo QtPdf dibuja los PDF con PDFium; Pygments colorea el código, y el cliente rápido está en Rust, con solo su biblioteca estándar. La lista completa del software libre que usa, con sus licencias, está en `docs/THIRD-PARTY.md`. El repositorio tiene 102 archivos y unas 23 000 líneas, de las cuales unas 7400 son pruebas.
 
 ### La jaula y lo que sale de ella
 
@@ -38,7 +38,7 @@ Dolphin 26.08 olvida los atajos de los menús de servicio en sus ventanas abiert
 
 ## Validación
 
-Hay 498 pruebas automáticas, en 33 archivos, que corren en unos doce segundos sin pantalla (las de Qt usan la plataforma `offscreen`); GitHub Actions las corre con cada push. Cubren el enrutamiento de cada tipo de archivo, los decodificadores, la jaula y la verificación de lo que devuelve, la caché, la configuración, la selección de texto, el zoom, la cuadrícula, el atajo de Dolphin y su vigilante, el paquete y el guion de publicación. Las pruebas del vigilante usan sustitutos y no envían nada al bus de sesión real, donde un vigilante instalado las oiría; las de LibreOffice se saltan donde no está instalado.
+Hay 505 pruebas automáticas, en 34 archivos, que corren en unos doce segundos sin pantalla (las de Qt usan la plataforma `offscreen`); GitHub Actions las corre con cada push. Cubren el enrutamiento de cada tipo de archivo, los decodificadores, la jaula y la verificación de lo que devuelve, la caché, la configuración, la selección de texto, el zoom, la cuadrícula, el atajo de Dolphin y su vigilante, el paquete, el guion de publicación y la firma de una versión, esta con una clave hecha en la prueba y nunca con la del autor. Las pruebas del vigilante usan sustitutos y no envían nada al bus de sesión real, donde un vigilante instalado las oiría; las de LibreOffice se saltan donde no está instalado.
 
 Varias pruebas reproducen fallos encontrados en una revisión completa del código antes de la versión 1.0: la miniatura falsa de una presentación, la tubería con nombre que congelaba el demonio, los nombres de archivo que no son UTF-8, una búsqueda lenta que pintaba sus resultados en el documento siguiente y respuestas malformadas del trabajador. Se comprobó, además, que esas pruebas fallaban con el código anterior.
 
@@ -52,7 +52,7 @@ No necesita internet. La jaula no tiene red, y el visor no hace ninguna petició
 
 ## Ambiente
 
-Fue desarrollado en Fedora Linux 45 con KDE Plasma, Dolphin 26.08 y Python 3.15. El código se gestiona con git y se publica en GitHub (https://github.com/nivaca/QuickView) y en Codeberg (https://codeberg.org/nivaca/QuickView); el proyecto original de Mustapha Alioglou está en https://github.com/MustaphaAlioglou/QuickView. Cada versión se publica en los dos sitios con los RPM firmados con la clave de Nicolas Vaughan, la clave pública y un archivo Zip del programa, y se compila en Copr.
+Fue desarrollado en Fedora Linux 45 con KDE Plasma, Dolphin 26.08 y Python 3.15. El código se gestiona con git y se publica en GitHub (https://github.com/nivaca/QuickView) y en Codeberg (https://codeberg.org/nivaca/QuickView); el proyecto original de Mustapha Alioglou está en https://github.com/MustaphaAlioglou/QuickView. Cada versión se publica en los dos sitios con los RPM firmados con la clave de Nicolas Vaughan, la clave pública y un archivo Zip del programa, y se compila en Copr. Cada archivo publicado lleva además su firma aparte (`.asc`), junto con las sumas `SHA256SUMS` y su firma, y la etiqueta de la versión va firmada; `packaging/sign_release.py` comprueba cada firma con solo la clave publicada antes de que nada salga de la máquina.
 
 En Fedora se instala con `sudo dnf copr enable nivaca/quickview` y `sudo dnf install quickview`; después, la barra espaciadora abre la vista previa en Dolphin (si Dolphin estaba abierto, hay que reiniciarlo). En otras distribuciones se descomprime el Zip o se clona el repositorio y se ejecuta `./install.sh`; `./uninstall.sh` lo deshace, atajo de Dolphin incluido. Los ajustes están en `~/.config/quickview/quickview.conf`, que también edita la ventana de configuración (`quickview --settings`), la caché en `~/.cache/quickview/` y el registro en `~/.local/share/quickview/`.
 

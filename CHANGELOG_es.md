@@ -6,6 +6,18 @@ las entradas llevan fecha.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Sin publicar
+
+### Cambios
+
+- **Cada versión firmada.** Además de los RPM, cada archivo que se
+  adjunta a una versión (los dos RPM y el Zip) va con su firma aparte
+  (`.asc`), con `SHA256SUMS` y su firma, y con la clave pública; la
+  etiqueta de la versión también va firmada (`git tag --sign`).
+  `packaging/release.py` comprueba cada firma con solo la clave publicada
+  antes de que nada salga de la máquina, y otra vez en los archivos
+  descargados de GitHub. El README explica cómo comprobar una descarga.
+
 ## 1.0.2 — 2026-11-21
 
 ### Correcciones

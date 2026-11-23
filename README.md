@@ -673,6 +673,20 @@ sudo rpm --import RPM-GPG-KEY-quickview
 sudo dnf install ./quickview-0.1.4-1.fc45.x86_64.rpm
 ```
 
+Every file attached to a release is signed with the same key: each one
+has a detached signature (`FILE.asc`), and the release has `SHA256SUMS`,
+the checksums of all of them, with its own signature. The tag of the version is signed too. To check a download,
+for instance the Zip bundle, import the key once, then check the file's
+signature and its checksum:
+
+```bash
+gpg --import RPM-GPG-KEY-quickview
+gpg --verify quickview-VERSION.zip.asc quickview-VERSION.zip
+gpg --verify SHA256SUMS.asc SHA256SUMS && sha256sum -c --ignore-missing SHA256SUMS
+```
+
+In a clone, `git tag -v vVERSION` checks the tag.
+
 ### Any distribution: from a checkout
 
 ```bash
@@ -815,8 +829,9 @@ before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
 - `tools/screenshots.py` — takes the README's screenshots, offscreen
 - `packaging/` — the RPM: `quickview.spec`, `build-rpm.sh`, the systemd
   units and launcher that both the package and `install.sh` use, the
-  release signing key, and `release.py`, which makes a release from the
-  changelog to Copr
+  release signing key, `release.py`, which makes a release from the
+  changelog to Copr, and `sign_release.py`, which signs each file of a
+  release and checks the signatures with only the published key
 - `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look" and
   "QuickView Settings")
 - `quickview-settings.desktop` — the settings window's application-menu

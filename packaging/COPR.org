@@ -76,15 +76,27 @@ packaging/release.py 0.1.3             # the release
   =copr-cli= logged in; =rpmsign= present; the signing key usable; tests
   and lint passing.
 - Then it bumps the spec (its =%changelog= entry made from the Unreleased
-  headlines), renames Unreleased to the version, commits and tags, and
-  builds with =build-rpm.sh --sign=…= using the key whose public half is
+  headlines), renames Unreleased to the version, commits, makes a signed
+  tag (=git tag --sign=, checked with =git tag --verify=), and builds with
+  =build-rpm.sh --sign=…= using the key whose public half is
   =packaging/RPM-GPG-KEY-quickview=. gpg asks for the passphrase here.
-  Nothing has been pushed yet; if the build fails, it prints how to undo
-  the local commit and tag.
+  Then =packaging/sign_release.py= signs every file to publish (a
+  detached =FILE.asc= for each, and =dist/SHA256SUMS= with its own), and
+  checks each signature the way a user would, in a keyring of its own
+  with only the public key file. Nothing has been pushed yet; if any of
+  this fails, it prints how to undo the local commit and tag.
 - Then it pushes (origin pushes to GitHub and Codeberg), publishes the
-  release on GitHub and on Codeberg (signed RPMs, the key file, notes from
-  the changelog with checksums), checks the downloads' signatures, builds the SRPM on Copr and waits until every chroot serves
+  release on GitHub and on Codeberg (signed RPMs, the Zip bundle, the
+  signature of each, =SHA256SUMS= and its signature, the key file, notes
+  from the changelog with checksums), checks the downloads' checksums and
+  signatures, builds the SRPM on Copr and waits until every chroot serves
   the new version.
+- gpg must have the key's passphrase cached if the release runs where it
+  cannot ask (sign anything once first, e.g. =echo test | gpg --clearsign
+  -u 81870643CA221AF90C30554EBE6832CD35994948 > /dev/null=). For GitHub to
+  show the tags as "Verified", the public key must be in the GitHub
+  account (Settings > SSH and GPG keys), with its e-mail address one of
+  the account's verified addresses.
 
 * Workflow A: upload an SRPM
 ** First release (or any release)
@@ -221,7 +233,8 @@ copr-cli get nivaca/quickview          # project settings
 Automated: =packaging/release.py X.Y.Z= (try =--dry-run= first). By hand:
 - [ ] =rpmdev-bumpspec -n X.Y.Z -c "..." packaging/quickview.spec=
 - [ ] Update CHANGELOG.md
-- [ ] =git commit -am "Release X.Y.Z" && git tag vX.Y.Z && git push --tags=
+- [ ] =git commit -am "Release X.Y.Z" && git tag -s vX.Y.Z -m "QuickView X.Y.Z" && git push --tags=
+      (a signed tag)
 - [ ] =packaging/build-rpm.sh --sign=FINGERPRINT= (clean tree; the key of
       =packaging/RPM-GPG-KEY-quickview=)
 - [ ] =copr-cli build quickview build/rpm/SRPMS/quickview-X.Y.Z-*.src.rpm=

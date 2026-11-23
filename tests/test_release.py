@@ -164,10 +164,55 @@ class Notes(unittest.TestCase):
                          "8187 0643 CA22 1AF9 0C30  554E BE68 32CD 3599 4948")
         self.assertIn(release.spaced_fingerprint(FPR), self.notes())
 
+    def test_how_to_check_a_download_is_said(self):
+        files = {"quickview-0.1.3-1.fc45.x86_64.rpm": "a" * 64,
+                 "quickview-0.1.3-1.fc45.src.rpm": "b" * 64,
+                 "quickview-0.1.3.zip": "c" * 64}
+        notes = release.release_notes("0.1.3", "0.1.2", "- x\n", files, FPR)
+        for expected in (
+                "gpg --import RPM-GPG-KEY-quickview",
+                "gpg --verify quickview-0.1.3.zip.asc quickview-0.1.3.zip",
+                "gpg --verify SHA256SUMS.asc SHA256SUMS && "
+                "sha256sum -c --ignore-missing SHA256SUMS",
+                "the tag `v0.1.3`"):
+            self.assertIn(expected, notes)
+
     def test_no_ai_credit(self):
         notes = self.notes().lower()
         for word in ("claude", "anthropic"):
             self.assertNotIn(word, notes)
+
+
+class Signing(unittest.TestCase):
+    PATHS = ["/x/build/rpm/RPMS/x86_64/quickview-0.1.3-1.fc45.x86_64.rpm",
+             "/x/build/rpm/SRPMS/quickview-0.1.3-1.fc45.src.rpm",
+             "/x/dist/quickview-0.1.3.zip"]
+
+    def test_every_file_goes_with_its_signature_the_sums_and_the_key(self):
+        files = release.published(self.PATHS)
+        for path in self.PATHS:
+            self.assertIn(path, files)
+            self.assertIn(path + ".asc", files)
+        self.assertIn(release.SUMS, files)
+        self.assertIn(release.SUMS + ".asc", files)
+        self.assertEqual(files[-1], release.KEY_FILE)
+        # GitHub y Codeberg guardan los archivos por su nombre: ninguno
+        # puede repetirse.
+        names = [os.path.basename(f) for f in files]
+        self.assertEqual(len(names), len(set(names)))
+
+    def test_the_files_are_signed_with_the_published_key(self):
+        cmd = release.sign_command(FPR, self.PATHS)
+        self.assertTrue(cmd[1].endswith("sign_release.py"))
+        self.assertEqual(cmd[cmd.index("--key") + 1], FPR)
+        self.assertEqual(cmd[cmd.index("--public") + 1], release.KEY_FILE)
+        self.assertEqual(cmd[-3:], self.PATHS)
+
+    def test_the_tag_is_signed_and_checked(self):
+        make, check = release.tag_commands(FPR, "0.1.3")
+        self.assertEqual(make[:5], ["git", "tag", "--sign", "--local-user", FPR])
+        self.assertEqual(make[-1], "v0.1.3")
+        self.assertEqual(check, ["git", "tag", "--verify", "v0.1.3"])
 
 
 class Versions(unittest.TestCase):

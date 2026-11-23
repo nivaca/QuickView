@@ -5,6 +5,18 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **Every release signed.** Besides the RPMs, each file attached to a
+  release (both RPMs and the Zip bundle) comes with its detached
+  signature (`.asc`), with `SHA256SUMS` and its signature, and with the
+  public key; the tag of the version is signed too (`git tag --sign`).
+  `packaging/release.py` checks each signature with only the published
+  key before anything leaves the machine, and again on the files
+  downloaded from GitHub. The README says how to check a download.
+
 ## 1.0.2 — 2026-11-21
 
 ### Fixed

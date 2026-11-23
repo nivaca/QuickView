@@ -21,22 +21,31 @@ order, stopping at the first thing that fails:
    tests and the lint passing.
 2. Bumps packaging/quickview.spec (Version, Release 1, a %changelog entry
    made from the Unreleased headlines) and renames "Unreleased" to
-   "VERSION — date"; commits "Release VERSION" and tags vVERSION, locally.
+   "VERSION — date"; commits "Release VERSION" and tags vVERSION, locally,
+   with a tag signed by the key (git tag --sign), which it then checks
+   (git tag --verify).
 3. Builds the RPMs with build-rpm.sh --sign. The key is the one whose
    public half is packaging/RPM-GPG-KEY-quickview, by fingerprint — never
-   another key with the same name. gpg asks for its passphrase.
+   another key with the same name. gpg asks for its passphrase. Then it
+   signs every file to publish (packaging/sign_release.py: FILE.asc, and
+   dist/SHA256SUMS with its .asc), and checks each signature with only
+   that public key.
    Up to here nothing has left this machine; if this fails, the script
    says how to undo the local commit and tag.
 4. Pushes main and the tag (origin pushes to GitHub and Codeberg);
    publishes the release on GitHub and on Codeberg, each with both RPMs,
-   the Zip bundle (dist/quickview-VERSION.zip) and the key, and notes
-   made from the changelog, with checksums.
-5. Downloads the release back and checks its checksums, and the RPMs'
-   signatures against its own key file, the way a user's dnf would.
+   the Zip bundle (dist/quickview-VERSION.zip), the signature of each,
+   SHA256SUMS and its signature, and the key, and notes made from the
+   changelog, with checksums.
+5. Downloads the release back and checks its checksums, the RPMs'
+   signatures against its own key file, the way a user's dnf would, and
+   each file's detached signature against the same key, as gpg would.
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
 
---dry-run does step 1 and prints what step 2 would write and the notes.
+--dry-run does step 1 and prints what step 2 would write, the commands
+of the signed tag, the build and the signing, the files it would attach,
+and the notes.
 """
 
 import argparse
@@ -45,6 +54,7 @@ import glob
 import hashlib
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -52,10 +62,15 @@ import tempfile
 import textwrap
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, "packaging"))
+import sign_release  # noqa: E402
+
 SPEC = os.path.join(ROOT, "packaging", "quickview.spec")
 CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
 VERSION_FILE = os.path.join(ROOT, "version.py")
 KEY_FILE = os.path.join(ROOT, "packaging", "RPM-GPG-KEY-quickview")
+# Las sumas de comprobación de lo publicado (firmadas, como cada archivo)
+SUMS = os.path.join(ROOT, "dist", "SHA256SUMS")
 GITHUB_REPO = "nivaca/QuickView"
 CODEBERG_REPO = "nivaca/QuickView"
 TEA_LOGIN = "codeberg"      # (the login of tea for codeberg.org)
@@ -154,6 +169,7 @@ def release_notes(version: str, previous: str, section: str,
              f"/releases/tag/v{previous}).\n\n") if previous else ""
     rows = "\n".join(f"| `{name}` | `{digest}` |"
                      for name, digest in files.items())
+    example = bundle or rpm
     return f"""{since}## What's new
 
 {section}
@@ -181,6 +197,16 @@ On another Fedora release, rebuild it with `rpmbuild --rebuild {srpm}`.
 Space then opens the preview in Dolphin (restart Dolphin if it was open); QuickView sets that up without overriding a shortcut you chose. There's no need to log out.
 
 **Any distribution:** {anywhere}. If you used `install.sh` before, run `./uninstall.sh` before installing the package.
+
+## Checking a download
+
+Every file here has its detached signature (`FILE.asc`), by the same key; `SHA256SUMS` lists their checksums and is signed too, and so is the tag `v{version}`. Import the key once, then check a file's signature and its checksum:
+
+```bash
+gpg --import RPM-GPG-KEY-quickview
+gpg --verify {example}.asc {example}
+gpg --verify SHA256SUMS.asc SHA256SUMS && sha256sum -c --ignore-missing SHA256SUMS
+```
 
 ## Files
 
@@ -304,6 +330,43 @@ def preflight(version: str, dry_run: bool) -> dict:
             "fpr": fpr}
 
 
+def published(paths: list) -> list:
+    """What a release attaches: each built file, its signature, SHA256SUMS
+    and its signature, and the public key."""
+    return ([*paths, *(f"{p}.asc" for p in paths), SUMS, f"{SUMS}.asc",
+             KEY_FILE])
+
+
+def sign_command(fpr: str, paths: list) -> list:
+    return [sys.executable, os.path.join(ROOT, "packaging", "sign_release.py"),
+            "--key", fpr, "--public", KEY_FILE, "--sums", SUMS, *paths]
+
+
+def tag_commands(fpr: str, version: str) -> list:
+    """The signed tag, and its check."""
+    tag = f"v{version}"
+    return [["git", "tag", "--sign", "--local-user", fpr, "-m",
+             f"QuickView {version}", tag],
+            ["git", "tag", "--verify", tag]]
+
+
+def expected_paths(version: str) -> list:
+    """The files build() will find (for the dry run), from rpm's %{dist}."""
+    dist = run(["rpm", "--eval", "%{?dist}"], capture=True)
+    nvr = f"quickview-{version}-1{dist}"
+    return [os.path.join(ROOT, "build", "rpm", "RPMS", "x86_64",
+                         f"{nvr}.x86_64.rpm"),
+            os.path.join(ROOT, "build", "rpm", "SRPMS", f"{nvr}.src.rpm"),
+            os.path.join(ROOT, "dist", f"quickview-{version}.zip")]
+
+
+def sign(fpr: str, paths: list):
+    """Every file signed, with SHA256SUMS, and each signature checked with
+    only the published key (sign_release.py stops on the first doubt)."""
+    say("== Signing every file and checking it with the published key")
+    run(sign_command(fpr, paths))
+
+
 def build(fpr: str, version: str) -> dict:
     """The signed RPMs and the Zip bundle build-rpm.sh leaves in dist/,
     with their SHA-256s."""
@@ -343,6 +406,15 @@ def verify_download(version: str, files: dict):
                 continue
             run(["rpmkeys", *check, "-K", path], capture=True)
             say(f"   {name}: signature OK, checksum matches")
+        # Y las firmas aparte, con la clave descargada y nada más.
+        signed = [os.path.join(dl, name) for name in files] + \
+            [os.path.join(dl, "SHA256SUMS")]
+        failed = sign_release.verify(
+            signed, os.path.join(dl, "RPM-GPG-KEY-quickview"))
+        if failed:
+            raise ReleaseError("on GitHub, these don't verify with the "
+                               "published key:\n  " + "\n  ".join(failed))
+        say("   every .asc verifies with RPM-GPG-KEY-quickview")
 
 
 def codeberg(version: str, notes: str, paths: list):
@@ -388,8 +460,8 @@ def copr(version: str, srpm: str):
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Release QuickView: changelog, tag, signed RPMs, "
-                    "GitHub and Codeberg releases and Copr build.")
+        description="Release QuickView: changelog, signed tag, signed RPMs "
+                    "and files, GitHub and Codeberg releases and Copr build.")
     parser.add_argument("version", help="the new version, e.g. 0.1.3")
     parser.add_argument("--dry-run", action="store_true",
                         help="check everything and show what would be "
@@ -412,10 +484,22 @@ def main() -> int:
             say(spec_entry(version, today, info["lines"]).rstrip())
             say(f"\n== Would rename \"## Unreleased\" to \"## {version} — "
                 f"{today.isoformat()}\"")
+            paths = expected_paths(version)
+            say("\n== Would tag, signed, and check the tag:")
+            for cmd in tag_commands(info["fpr"], version):
+                say("   " + shlex.join(cmd))
+            say("\n== Would build and sign the RPMs:")
+            say(f"   packaging/build-rpm.sh --sign={info['fpr']}")
+            say("\n== Would sign every file, and check it with the "
+                "published key:")
+            say("   " + shlex.join(
+                os.path.relpath(a, ROOT) if a.startswith(ROOT + os.sep) else a
+                for a in sign_command(info["fpr"], paths)))
+            say("\n== Would attach, on GitHub and on Codeberg:")
+            for path in published(paths):
+                say("   " + os.path.relpath(path, ROOT))
             say("\n== Would publish these notes (checksums made up):\n")
-            fake = {f"quickview-{version}-1.fc45.x86_64.rpm": "0" * 64,
-                    f"quickview-{version}-1.fc45.src.rpm": "0" * 64,
-                    f"quickview-{version}.zip": "0" * 64}
+            fake = {os.path.basename(p): "0" * 64 for p in paths}
             say(release_notes(version, info["current"], info["section"],
                               fake, info["fpr"]))
             say("Dry run: nothing was changed.")
@@ -432,13 +516,15 @@ def main() -> int:
             f"- {line}" for line in info["lines"])
         run(["git", "commit", "-q", "-m", message, "--", SPEC, CHANGELOG,
              VERSION_FILE])
-        run(["git", "tag", "-a", f"v{version}", "-m", f"QuickView {version}"])
         try:
+            for cmd in tag_commands(info["fpr"], version):
+                run(cmd)
             built = build(info["fpr"], version)
+            sign(info["fpr"], built["paths"])
         except ReleaseError:
             say("\nNothing was published. To undo the local release commit "
-                "and tag:\n"
-                f"  git tag -d v{version} && git reset --hard HEAD~1")
+                "and tag (if it was made):\n"
+                f"  git tag -d v{version}; git reset --hard HEAD~1")
             raise
 
         say("== Publishing")
@@ -452,10 +538,10 @@ def main() -> int:
         try:
             url = run(["gh", "release", "create", f"v{version}",
                        "-R", GITHUB_REPO, "--title", f"QuickView {version}",
-                       "--notes-file", notes, *built["paths"], KEY_FILE],
+                       "--notes-file", notes, *published(built["paths"])],
                       capture=True)
             say(f"   {url}")
-            codeberg(version, notes, built["paths"] + [KEY_FILE])
+            codeberg(version, notes, published(built["paths"]))
         finally:
             os.unlink(notes)
         verify_download(version, built["files"])

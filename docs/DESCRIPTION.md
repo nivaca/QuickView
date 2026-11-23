@@ -8,7 +8,7 @@ video, source code, an archive), and Space again closes it.  Mustapha
 Alioglou wrote the first versions between June and October 2026.  Nicolas
 Vaughan made a fork of it in November 2026, and the fork is the program
 described here, which reached version 1.0 on 19 November 2026.  Here I
-explain how it was made, in eight stages.
+explain how it was made, in nine stages.
 
 QuickView is free software, under the GNU General Public License, version 3
 or later.  It is written with PySide6, the Python binding of Qt 6 (LGPL
@@ -180,21 +180,40 @@ loss replaces the waiting notification with a fresh one, and the
 notification is critical, so Plasma keeps it on screen until it is
 answered.
 
+9. Every release signed
+-----------------------
+
+The RPMs were signed from the start, and the release script checked them
+after downloading them back from GitHub, but the Zip bundle and the tag
+went out with nothing to show where they came from.  Now a release signs
+everything with the same key: a detached signature for each file (both
+RPMs too, so that gpg can check them where there is no `rpm`), a list of
+their SHA-256 sums with its own signature, and the tag, signed by git and
+checked at once.  A signature nobody checks proves little, so
+`packaging/sign_release.py` checks each one before anything is pushed,
+the way a user would, in a keyring of its own that holds only the public
+key published with the files; after publishing, the script checks them
+again on the files it downloads from GitHub.  A file changed after
+signing, or a published key that is not the one that signed, stops the
+release.  The tests sign with a key made for them, in a folder of their
+own, never with mine.
+
 Testing
 -------
 
-There are 498 automatic tests, in 33 files, which run in about twelve
+There are 505 automatic tests, in 34 files, which run in about twelve
 seconds without a display (the Qt ones run offscreen); GitHub Actions runs
 them with each push.  They cover the routing of each kind of file, the
 decoders, the jail and the checks of what comes out of it, the cache, the
 settings, the text selection, the zoom, the index sheet, the Dolphin
 shortcut and its watch (with stand-ins, so that no test sends anything on
-the real session bus), the package and the release script.  The tests of
+the real session bus), the package, the release script and the signing
+of a release (with a key made in the test).  The tests of
 LibreOffice run only where it is installed.
 
 The new worker operations were also tried inside the real jail, and the
 views were checked by eye, by saving pictures of the panel drawn
 offscreen.  The diagnosis of the lost Dolphin shortcut was made by reading
 Dolphin's source, and the watch was tried against a running Dolphin
-without closing it.  The repository has 100 files and around 23,000 lines,
-of which about 7,200 are tests.
+without closing it.  The repository has 102 files and around 23,000 lines,
+of which about 7,400 are tests.
