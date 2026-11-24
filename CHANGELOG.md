@@ -16,6 +16,12 @@ project has no version tags yet, so entries are dated.
   items too, and wrapping those crashed it (with PySide 6.11 and 6.12
   alike). The zoom now watches only the preview window's own widgets;
   Ctrl+wheel works as before.
+- **HTML previews show their page again, not a white panel.** A web page
+  is drawn by Qt Quick, which the panel's drop shadow
+  (`QGraphicsDropShadowEffect`) cannot compose, so the page stayed
+  blank. The shadow is switched off while an HTML page is showing and
+  comes back with the next file.
+
 ## 1.0.3 — 2026-11-22
 
 ### Changed

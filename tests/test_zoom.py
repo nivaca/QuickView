@@ -274,3 +274,13 @@ class Text(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Shadow(Base):
+    # Una página web sale en blanco bajo el QGraphicsDropShadowEffect del
+    # panel: la vista HTML lo apaga, y la vista siguiente lo vuelve a poner.
+    def test_the_next_view_brings_the_shadow_back(self):
+        self.assertTrue(self.w._shadow.isEnabled())
+        self.w._shadow.setEnabled(False)  # as _show_html_rendered leaves it
+        self.w.clear_content()  # what every new file starts with
+        self.assertTrue(self.w._shadow.isEnabled())

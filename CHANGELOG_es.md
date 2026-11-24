@@ -17,6 +17,12 @@ las entradas llevan fecha.
   los elementos internos de Qt Quick de la vista web, y al envolverlos
   se caía (con PySide 6.11 y con 6.12). Ahora el zoom vigila solo los
   widgets de la ventana de vista previa; Ctrl+rueda funciona como antes.
+- **Las vistas previas HTML vuelven a mostrar la página, no un panel en
+  blanco.** Una página web la dibuja Qt Quick, y la sombra del panel
+  (`QGraphicsDropShadowEffect`) no sabe componerla, así que la página
+  quedaba en blanco. La sombra se apaga mientras se ve una página HTML y
+  vuelve con el archivo siguiente.
+
 ## 1.0.3 — 2026-11-22
 
 ### Cambios

@@ -250,6 +250,10 @@ class TextViewMixin:
             ):
                 settings.setAttribute(attr, False)
 
+        # Una página web no se ve bajo un QGraphicsEffect: Qt Quick, que la
+        # dibuja, queda fuera de la imagen que el efecto compone, y el panel
+        # muestra una página en blanco. Sin sombra mientras se ve.
+        self._shadow.setEnabled(False)
         view = QWebEngineView()
         page = QWebEnginePage(self._web_profile, view)
         view.setPage(page)

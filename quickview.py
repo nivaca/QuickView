@@ -187,6 +187,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         shadow.setOffset(0, 8)
         shadow.setColor(QColor(0, 0, 0, 160))
         self.panel.setGraphicsEffect(shadow)
+        self._shadow = shadow  # off while a web page shows (_show_html_rendered)
 
         # Room left around the panel for the drop shadow; the panel is
         # placed inside the overlay by _place_panel(), not by a layout.
@@ -589,6 +590,7 @@ class QuickView(ImageViewMixin, DocumentViewMixin, MediaViewMixin,
         if self._find_job is not None:
             self._find_job.cancel()
             self._find_job = None
+        self._shadow.setEnabled(True)
         self._set_nav_shortcuts(True)
         self._forget_zoom_view()
         self._forget_index()
