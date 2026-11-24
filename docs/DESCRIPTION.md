@@ -198,10 +198,32 @@ signing, or a published key that is not the one that signed, stops the
 release.  The tests sign with a key made for them, in a folder of their
 own, never with mine.
 
+10. Two faults in the HTML view
+-------------------------------
+
+Version 1.0.4 corrects two faults of the HTML preview.  In 1.0.3 the
+daemon crashed as soon as the mouse passed over one.  The cause was in
+the zoom of stage 6: to catch Ctrl and the wheel before a text box or a
+web page used it for its own zoom, I had put an event filter on the whole
+application.  PySide must wrap in Python every object whose events go
+through such a filter, and a web view is full of Qt Quick objects made in
+C++; wrapping one of them crashed it, with PySide 6.11 as with 6.12.  A
+script of twenty lines was enough to show it, without QuickView.  The
+filter now sits on the widgets of the preview window only, and on each
+new widget once it is polished.
+
+With the crash gone, a second fault appeared that the first had hidden:
+the page was white.  Qt drew it well (a picture of the panel taken by Qt
+had the text), but the screen did not, so I compared real screenshots.
+A bare web view showed its page, and the same view under the panel's drop
+shadow, a `QGraphicsDropShadowEffect`, showed white: the effect composes
+an image of the panel in which the Qt Quick drawing of the page is
+missing.  The shadow is now switched off while an HTML page shows.
+
 Testing
 -------
 
-There are 505 automatic tests, in 34 files, which run in about twelve
+There are 506 automatic tests, in 34 files, which run in about twelve
 seconds without a display (the Qt ones run offscreen); GitHub Actions runs
 them with each push.  They cover the routing of each kind of file, the
 decoders, the jail and the checks of what comes out of it, the cache, the
@@ -215,5 +237,7 @@ The new worker operations were also tried inside the real jail, and the
 views were checked by eye, by saving pictures of the panel drawn
 offscreen.  The diagnosis of the lost Dolphin shortcut was made by reading
 Dolphin's source, and the watch was tried against a running Dolphin
-without closing it.  The repository has 102 files and around 23,000 lines,
+without closing it.  The HTML view was checked with screenshots of the
+real screen, since a picture drawn by Qt can show a page that the
+screen does not.  The repository has 102 files and around 23,000 lines,
 of which about 7,400 are tests.

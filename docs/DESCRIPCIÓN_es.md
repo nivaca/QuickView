@@ -1,4 +1,4 @@
-# QuickView 1.0.3: descripción
+# QuickView 1.0.4: descripción
 
 ## Análisis
 
@@ -36,11 +36,15 @@ Las páginas son imágenes, así que para seleccionar texto hay que saber dónde
 
 Dolphin 26.08 olvida los atajos de los menús de servicio en sus ventanas abiertas cada vez que se aplican sus ajustes, aunque no cambien. La corrección llegará con Dolphin 26.12. Mientras tanto, QuickView devuelve la barra espaciadora al iniciar sesión y escucha en el bus de sesión las dos señales con que Dolphin anuncia esos momentos, para ofrecer reiniciarlo con una notificación.
 
+### La página web
+
+Las páginas HTML se muestran con Qt WebEngine, que las dibuja con Qt Quick, y eso pide dos cuidados. El filtro de eventos del zoom (Ctrl y la rueda) va en los widgets de la ventana, no en toda la aplicación: PySide envuelve en Python cada objeto cuyos eventos pasan por un filtro así, y al envolver los objetos internos de Qt Quick se caía. Y la sombra del panel, un `QGraphicsDropShadowEffect`, se apaga mientras se ve una página, porque el efecto compone una imagen del panel en la que falta el dibujo de Qt Quick, y la página salía en blanco. Ambos fallos se corrigieron en la versión 1.0.4.
+
 ## Validación
 
-Hay 505 pruebas automáticas, en 34 archivos, que corren en unos doce segundos sin pantalla (las de Qt usan la plataforma `offscreen`); GitHub Actions las corre con cada push. Cubren el enrutamiento de cada tipo de archivo, los decodificadores, la jaula y la verificación de lo que devuelve, la caché, la configuración, la selección de texto, el zoom, la cuadrícula, el atajo de Dolphin y su vigilante, el paquete, el guion de publicación y la firma de una versión, esta con una clave hecha en la prueba y nunca con la del autor. Las pruebas del vigilante usan sustitutos y no envían nada al bus de sesión real, donde un vigilante instalado las oiría; las de LibreOffice se saltan donde no está instalado.
+Hay 506 pruebas automáticas, en 34 archivos, que corren en unos doce segundos sin pantalla (las de Qt usan la plataforma `offscreen`); GitHub Actions las corre con cada push. Cubren el enrutamiento de cada tipo de archivo, los decodificadores, la jaula y la verificación de lo que devuelve, la caché, la configuración, la selección de texto, el zoom, la cuadrícula, el atajo de Dolphin y su vigilante, el paquete, el guion de publicación y la firma de una versión, esta con una clave hecha en la prueba y nunca con la del autor. Las pruebas del vigilante usan sustitutos y no envían nada al bus de sesión real, donde un vigilante instalado las oiría; las de LibreOffice se saltan donde no está instalado.
 
-Varias pruebas reproducen fallos encontrados en una revisión completa del código antes de la versión 1.0: la miniatura falsa de una presentación, la tubería con nombre que congelaba el demonio, los nombres de archivo que no son UTF-8, una búsqueda lenta que pintaba sus resultados en el documento siguiente y respuestas malformadas del trabajador. Se comprobó, además, que esas pruebas fallaban con el código anterior.
+Varias pruebas reproducen fallos encontrados en una revisión completa del código antes de la versión 1.0: la miniatura falsa de una presentación, la tubería con nombre que congelaba el demonio, los nombres de archivo que no son UTF-8, una búsqueda lenta que pintaba sus resultados en el documento siguiente y respuestas malformadas del trabajador. Se comprobó, además, que esas pruebas fallaban con el código anterior. La vista HTML se revisó con capturas de la pantalla real, porque una imagen dibujada por Qt puede mostrar una página que la pantalla no muestra.
 
 Las operaciones nuevas del trabajador se probaron dentro de la jaula real, con LibreOffice y sin él. Las vistas se revisaron a ojo, guardando imágenes del panel dibujado fuera de pantalla. El diagnóstico del atajo perdido salió de leer el código fuente de Dolphin, y el vigilante se probó contra un Dolphin en marcha sin cerrarlo.
 

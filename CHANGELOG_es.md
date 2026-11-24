@@ -6,7 +6,7 @@ las entradas llevan fecha.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
-## Sin publicar
+## 1.0.4 — 2026-11-24
 
 ### Correcciones
 
