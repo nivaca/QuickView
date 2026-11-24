@@ -531,7 +531,7 @@ in `crash.log`.
 
 The settings window edits everything below. Open it from **QuickView
 Settings** in the application menu (or KRunner), by right-clicking any file
-in Dolphin, with the **⚙** button in the panel, or with:
+in Dolphin (under **Folder tools**), with the **⚙** button in the panel, or with:
 
 ```bash
 quickview --settings
@@ -833,7 +833,7 @@ before installing: `sudo rpm --import RPM-GPG-KEY-quickview`.
   changelog to Copr, and `sign_release.py`, which signs each file of a
   release and checks the signatures with only the published key
 - `quickview-servicemenu.desktop` — Dolphin service menu ("Quick Look" and
-  "QuickView Settings")
+  "QuickView Settings", in the "Folder tools" submenu)
 - `quickview-settings.desktop` — the settings window's application-menu
   entry
 - `.venv/` — self-contained PySide6 install, created by `install.sh` (no

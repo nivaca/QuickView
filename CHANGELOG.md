@@ -5,6 +5,15 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Changed
+
+- **Dolphin's menu entries in a submenu.** Quick Look and QuickView
+  Settings now sit in the **Folder tools** submenu of Dolphin's
+  right-click menu, not at its top level. The Space shortcut is not
+  affected.
+
 ## 1.0.4 — 2026-11-24
 
 ### Fixed

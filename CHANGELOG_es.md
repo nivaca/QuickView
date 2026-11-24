@@ -6,6 +6,15 @@ las entradas llevan fecha.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Sin publicar
+
+### Cambios
+
+- **Las entradas del menú de Dolphin, en un submenú.** Quick Look y
+  QuickView Settings están ahora en el submenú **Folder tools** del menú
+  contextual de Dolphin, no en su primer nivel. El atajo de la barra
+  espaciadora no cambia.
+
 ## 1.0.4 — 2026-11-24
 
 ### Correcciones

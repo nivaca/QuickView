@@ -3,6 +3,7 @@ Type=Service
 MimeType=all/all;
 Actions=QuickView;QuickViewSettings;
 X-KDE-Priority=TopLevel
+X-KDE-Submenu=Folder tools
 
 [Desktop Action QuickView]
 Name=Quick Look
