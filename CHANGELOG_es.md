@@ -6,6 +6,17 @@ las entradas llevan fecha.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Sin publicar
+
+### Correcciones
+
+- **Sin caídas al pasar el ratón sobre una página web.** El demonio se
+  caía (SIGSEGV) en cuanto el ratón pasaba sobre una vista previa HTML.
+  El zoom con Ctrl+rueda vigilaba todos los eventos de la aplicación,
+  así que PySide tenía que envolver cada objeto que recibía uno, también
+  los elementos internos de Qt Quick de la vista web, y al envolverlos
+  se caía (con PySide 6.11 y con 6.12). Ahora el zoom vigila solo los
+  widgets de la ventana de vista previa; Ctrl+rueda funciona como antes.
 ## 1.0.3 — 2026-11-22
 
 ### Cambios

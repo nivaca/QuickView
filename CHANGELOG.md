@@ -5,6 +5,17 @@ project has no version tags yet, so entries are dated.
 
 [kac]: https://keepachangelog.com/en/1.1.0/
 
+## Unreleased
+
+### Fixed
+
+- **No crash when the pointer moves over a web page.** The daemon died
+  (SIGSEGV) as soon as the mouse hovered over an HTML preview. The
+  Ctrl+wheel zoom watched every event of the application, so PySide had
+  to wrap each object that got one, the web view's internal Qt Quick
+  items too, and wrapping those crashed it (with PySide 6.11 and 6.12
+  alike). The zoom now watches only the preview window's own widgets;
+  Ctrl+wheel works as before.
 ## 1.0.3 — 2026-11-22
 
 ### Changed

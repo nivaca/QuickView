@@ -84,15 +84,49 @@ def fit_label(label: QLabel):
 class _CtrlWheel(QObject):
     """Ctrl+wheel anywhere in the window, before the widget under the
     pointer sees it: a text box would zoom its own font, a web page its
-    own zoom, and the window would lose track of the level."""
+    own zoom, and the window would lose track of the level.
+
+    Se instala en cada widget de la ventana, nunca en la aplicación: con
+    un filtro de toda la aplicación, PySide tiene que envolver en Python
+    cada objeto que recibe un evento, también los objetos internos de Qt
+    Quick de una página web, y al envolverlos se cae (SIGSEGV al pasar el
+    ratón sobre una vista previa HTML)."""
 
     def __init__(self, view):
         super().__init__(view)
         self.view = view
         self.rest = 0  # a touchpad scrolls in fractions of a notch
+        self._sweep_due = False
+        self.watch(view)
+
+    def watch(self, widget):
+        """El filtro en widget y en todos sus descendientes; instalarlo
+        dos veces no lo duplica."""
+        widget.installEventFilter(self)
+        for child in widget.findChildren(QWidget):
+            child.installEventFilter(self)
+
+    def _sweep(self):
+        self._sweep_due = False
+        self.watch(self.view)
 
     def eventFilter(self, obj, event):
-        if (event.type() == QEvent.Type.Wheel
+        kind = event.type()
+        if kind == QEvent.Type.ChildPolished:
+            # Pulido quiere decir construido del todo: ya se puede
+            # envolver sin riesgo (a web page's own widget arrives so).
+            child = event.child()
+            if isinstance(child, QWidget):
+                self.watch(child)
+            return False
+        if kind == QEvent.Type.ChildAdded:
+            # The child may still be under construction here: leave it
+            # alone and look at the whole window once the loop is back.
+            if not self._sweep_due:
+                self._sweep_due = True
+                QTimer.singleShot(0, self, self._sweep)
+            return False
+        if (kind == QEvent.Type.Wheel
                 and event.modifiers() & Qt.KeyboardModifier.ControlModifier
                 and isinstance(obj, QWidget) and obj.window() is self.view):
             self.rest += event.angleDelta().y()
@@ -130,7 +164,6 @@ class ZoomMixin:
                                    | Qt.KeyboardModifier.KeypadModifier | key),
                       self, activated=fn)
         self._ctrl_wheel = _CtrlWheel(self)
-        app.installEventFilter(self._ctrl_wheel)
 
     def _forget_zoom_view(self):
         """The view is being torn down; the level itself stays (see the
@@ -147,6 +180,7 @@ class ZoomMixin:
     def _set_zoom_target(self, fn):
         """The view now showing zooms with fn; bring it to the file's level."""
         self._zoom_target = fn
+        self._ctrl_wheel.watch(self)
         if abs(self._zoom - 1.0) > 1e-6:
             fn(self._zoom, 1.0, None)
 
