@@ -14,7 +14,7 @@
 %global debug_package %{nil}
 
 Name:           quickview
-Version:        1.0.3
+Version:        1.0.4
 Release:        1%{?dist}
 Summary:        Quick Look style file previewer for KDE Plasma
 
@@ -159,6 +159,10 @@ fi
 %{_datadir}/kio/servicemenus/quickview-servicemenu.desktop
 
 %changelog
+* Tue Nov 24 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.4-1
+- No crash when the pointer moves over a web page
+- HTML previews show their page again, not a white panel
+
 * Sun Nov 22 2026 Nicolas Vaughan <nicolasvaughan@proton.me> - 1.0.3-1
 - Every release signed
 
