@@ -20,7 +20,7 @@ collect reúne en dist/zenodo/ lo que se deposita de la versión (la última eti
 - con --packages, además los archivos publicados con la versión, los de dist/SHA256SUMS (rueda, AppImage,
   RPM...), cada uno con la firma que ya tenía;
 - la firma separada de cada archivo (ARCHIVO.asc), SHA256SUMS de solo esos archivos y su firma, y la clave
-  pública packaging/RPM-GPG-KEY-NOMBRE.
+  pública (packaging/RPM-GPG-KEY-NOMBRE o, en las aplicaciones de Android, GPG-KEY-NOMBRE.asc).
 
 Antes comprueba la firma de la etiqueta, y después cada firma, como lo haría quien descargue el depósito: en un
 GNUPGHOME temporal que solo tiene la clave pública. Si algo no se comprueba, no deja dist/zenodo/.
@@ -63,26 +63,30 @@ class Failed(Exception):
 
 
 def public_key() -> Path:
-    """packaging/RPM-GPG-KEY-NAME, the public key published with every release."""
-    found = sorted((ROOT / "packaging").glob("RPM-GPG-KEY-*"))
+    """The public key published with every release: packaging/RPM-GPG-KEY-NAME or, in the Android apps,
+    GPG-KEY-NAME.asc at the top of the repository."""
+    found = sorted((ROOT / "packaging").glob("RPM-GPG-KEY-*")) + sorted(ROOT.glob("GPG-KEY-*.asc"))
     if len(found) != 1:
-        raise Failed("there must be one packaging/RPM-GPG-KEY-NAME, the public key of the releases")
+        raise Failed("there must be one public key of the releases, packaging/RPM-GPG-KEY-NAME or GPG-KEY-NAME.asc")
     return found[0]
 
 
 def project_name() -> str:
-    return public_key().name.removeprefix("RPM-GPG-KEY-")
+    return public_key().name.removeprefix("RPM-GPG-KEY-").removeprefix("GPG-KEY-").removesuffix(".asc")
 
 
 def signing_key() -> str:
-    """The project's signing key, as packaging/build-rpm.sh pins it (or $SIGNING_KEY, as there)."""
+    """The key that signs: $SIGNING_KEY if it is set, or else the one of the published public key, by its
+    fingerprint (the signatures are checked with that key, so no other would do)."""
     if os.environ.get("SIGNING_KEY"):
         return os.environ["SIGNING_KEY"]
-    script = ROOT / "packaging" / "build-rpm.sh"
-    m = re.search(r'SIGNING_KEY="\$\{SIGNING_KEY:-([0-9A-F]{40})\}"', script.read_text() if script.is_file() else "")
-    if not m:
-        raise Failed("no signing key pinned in packaging/build-rpm.sh")
-    return m.group(1)
+    done = subprocess.run(["gpg", "--batch", "--with-colons", "--show-keys", str(public_key())],
+                          capture_output=True, text=True, check=False)
+    fingerprints = [line.split(":")[9] for line in done.stdout.splitlines() if line.startswith("fpr:")]
+    if done.returncode != 0 or not fingerprints:
+        raise Failed(f"gpg cannot read the public key {public_key().name}")
+    # La primera es la de la clave principal; las demás, de sus subclaves
+    return fingerprints[0]
 
 
 def git(*args: str, env: dict[str, str] | None = None) -> str:
@@ -270,7 +274,7 @@ def deposit_files(out: Path = OUT) -> list[Path]:
             return "source"
         if base == "SHA256SUMS":
             return "sums"
-        return "key" if p.name.startswith("RPM-GPG-KEY-") else "other"
+        return "key" if p.name == public_key().name else "other"
 
     return sorted(files, key=lambda p: (order[kind(p)], p.name.removesuffix(".asc"), p.name))
 

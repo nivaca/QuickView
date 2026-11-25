@@ -212,6 +212,22 @@ class ZenodoTest(unittest.TestCase):
         version, _files = self.tool.check_deposit()
         self.assertEqual(version, "1.0")
 
+    def test_the_signing_key_is_that_of_the_public_key(self):
+        """Without $SIGNING_KEY, the key that signs is the one of the published public key, by its fingerprint."""
+        del os.environ["SIGNING_KEY"]
+        self.assertEqual(self.tool.signing_key(), self.fpr)
+        self.tool.collect(None, packages=False)
+        self.tool.check_deposit()
+
+    def test_the_public_key_of_the_android_apps(self):
+        """The public key as GPG-KEY-NAME.asc at the top of the repository, as in the Android apps."""
+        (self.root / "packaging" / "RPM-GPG-KEY-demo").rename(self.root / "GPG-KEY-demo-app.asc")
+        names = [p.name for p in self.tool.collect(None, packages=False)]
+        self.assertEqual(names, ["demo-app-1.0-source.tar.gz", "demo-app-1.0-source.tar.gz.asc", "SHA256SUMS",
+                                 "SHA256SUMS.asc", "GPG-KEY-demo-app.asc"])
+        version, _files = self.tool.check_deposit()
+        self.assertEqual(version, "1.0")
+
     def test_collect_with_packages(self):
         files = self.release_files()
         names = {p.name for p in self.tool.collect("v1.0", packages=True)}
