@@ -17,8 +17,8 @@ las entradas llevan fecha.
   firma con solo esa clave (`--packages` añade los archivos de la versión).
   `upload` lo sube a Zenodo como borrador, versión nueva del depósito si ya
   lo hay, y nunca lo publica. `packaging/release.py` reúne ahora el depósito
-  después de la etiqueta y, con `--zenodo`, lo sube. Los metadatos están en
-  `.zenodo.json`.
+  después de la etiqueta y lo sube como borrador, salvo con `--no-zenodo`.
+  Los metadatos están en `.zenodo.json`.
 
 ### Cambios
 

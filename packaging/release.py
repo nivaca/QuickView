@@ -10,7 +10,7 @@
 
 """Makes a QuickView release, from the changelog to Copr, in one go.
 
-    packaging/release.py VERSION [--zenodo] [--dry-run]
+    packaging/release.py VERSION [--no-zenodo] [--dry-run]
 
 What is released is what CHANGELOG.md lists under "## Unreleased". In
 order, stopping at the first thing that fails:
@@ -44,8 +44,8 @@ order, stopping at the first thing that fails:
    each file's detached signature against the same key, as gpg would.
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
-7. With --zenodo, uploads dist/zenodo/ to Zenodo as a draft (the token in
-   $ZENODO_TOKEN). The draft is never published here: review it and
+7. Unless --no-zenodo, uploads dist/zenodo/ to Zenodo as a draft (the token
+   in $ZENODO_TOKEN). The draft is never published here: review it and
    publish it on Zenodo by hand.
 
 --dry-run does step 1 and prints what step 2 would write, the commands
@@ -468,9 +468,10 @@ def main() -> int:
         description="Release QuickView: changelog, signed tag, signed RPMs "
                     "and files, GitHub and Codeberg releases and Copr build.")
     parser.add_argument("version", help="the new version, e.g. 0.1.3")
-    parser.add_argument("--zenodo", action="store_true",
-                        help="also upload dist/zenodo/ to Zenodo as a "
-                             "draft, not published ($ZENODO_TOKEN)")
+    parser.add_argument("--no-zenodo", action="store_true",
+                        help="don't upload dist/zenodo/ to Zenodo (by default "
+                             "it goes as a draft, never published, with the "
+                             "token in $ZENODO_TOKEN)")
     parser.add_argument("--dry-run", action="store_true",
                         help="check everything and show what would be "
                              "written, changing nothing")
@@ -479,8 +480,9 @@ def main() -> int:
     today = datetime.date.today()
     zenodo = [sys.executable, os.path.join(ROOT, "tools", "zenodo.py")]
     # Sin token se para aquí, antes de hacer nada, y no al final
-    if args.zenodo and not args.dry_run and not os.environ.get("ZENODO_TOKEN"):
-        say("release: --zenodo needs a Zenodo token in $ZENODO_TOKEN")
+    if not args.no_zenodo and not args.dry_run and not os.environ.get("ZENODO_TOKEN"):
+        say("release: the upload to Zenodo needs a token in $ZENODO_TOKEN; "
+            "--no-zenodo leaves it out")
         return 1
     try:
         info = preflight(version, args.dry_run)
@@ -511,7 +513,7 @@ def main() -> int:
             say("\n== Would collect the deposit for Zenodo:")
             say("   " + shlex.join(["tools/zenodo.py", "collect", "--tag",
                                     f"v{version}"]))
-            if args.zenodo:
+            if not args.no_zenodo:
                 say("\n== Would upload it to Zenodo, as a draft:")
                 say("   tools/zenodo.py upload")
             say("\n== Would attach, on GitHub and on Codeberg:")
@@ -567,7 +569,7 @@ def main() -> int:
         verify_download(version, built["files"])
         srpm = next(p for p in built["paths"] if p.endswith(".src.rpm"))
         copr(version, srpm)
-        if args.zenodo:
+        if not args.no_zenodo:
             say("== Zenodo (a draft, not published)")
             run([*zenodo, "upload"])
         say(f"\nReleased {version}: GitHub ({url}), Codeberg "
