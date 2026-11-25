@@ -10,7 +10,7 @@
 
 """Makes a QuickView release, from the changelog to Copr, in one go.
 
-    packaging/release.py VERSION [--dry-run]
+    packaging/release.py VERSION [--zenodo] [--dry-run]
 
 What is released is what CHANGELOG.md lists under "## Unreleased". In
 order, stopping at the first thing that fails:
@@ -29,7 +29,9 @@ order, stopping at the first thing that fails:
    another key with the same name. gpg asks for its passphrase. Then it
    signs every file to publish (packaging/sign_release.py: FILE.asc, and
    dist/SHA256SUMS with its .asc), and checks each signature with only
-   that public key.
+   that public key. Last, it collects the deposit for Zenodo in
+   dist/zenodo/ (tools/zenodo.py collect: the tree of the tag, signed,
+   with SHA256SUMS and the public key, each signature checked).
    Up to here nothing has left this machine; if this fails, the script
    says how to undo the local commit and tag.
 4. Pushes main and the tag (origin pushes to GitHub and Codeberg);
@@ -42,10 +44,13 @@ order, stopping at the first thing that fails:
    each file's detached signature against the same key, as gpg would.
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
+7. With --zenodo, uploads dist/zenodo/ to Zenodo as a draft (the token in
+   $ZENODO_TOKEN). The draft is never published here: review it and
+   publish it on Zenodo by hand.
 
 --dry-run does step 1 and prints what step 2 would write, the commands
 of the signed tag, the build and the signing, the files it would attach,
-and the notes.
+the notes, and the steps for Zenodo.
 """
 
 import argparse
@@ -463,12 +468,20 @@ def main() -> int:
         description="Release QuickView: changelog, signed tag, signed RPMs "
                     "and files, GitHub and Codeberg releases and Copr build.")
     parser.add_argument("version", help="the new version, e.g. 0.1.3")
+    parser.add_argument("--zenodo", action="store_true",
+                        help="also upload dist/zenodo/ to Zenodo as a "
+                             "draft, not published ($ZENODO_TOKEN)")
     parser.add_argument("--dry-run", action="store_true",
                         help="check everything and show what would be "
                              "written, changing nothing")
     args = parser.parse_args()
     version = args.version
     today = datetime.date.today()
+    zenodo = [sys.executable, os.path.join(ROOT, "tools", "zenodo.py")]
+    # Sin token se para aquí, antes de hacer nada, y no al final
+    if args.zenodo and not args.dry_run and not os.environ.get("ZENODO_TOKEN"):
+        say("release: --zenodo needs a Zenodo token in $ZENODO_TOKEN")
+        return 1
     try:
         info = preflight(version, args.dry_run)
         with open(SPEC, encoding="utf-8") as fh:
@@ -495,6 +508,12 @@ def main() -> int:
             say("   " + shlex.join(
                 os.path.relpath(a, ROOT) if a.startswith(ROOT + os.sep) else a
                 for a in sign_command(info["fpr"], paths)))
+            say("\n== Would collect the deposit for Zenodo:")
+            say("   " + shlex.join(["tools/zenodo.py", "collect", "--tag",
+                                    f"v{version}"]))
+            if args.zenodo:
+                say("\n== Would upload it to Zenodo, as a draft:")
+                say("   tools/zenodo.py upload")
             say("\n== Would attach, on GitHub and on Codeberg:")
             for path in published(paths):
                 say("   " + os.path.relpath(path, ROOT))
@@ -521,6 +540,7 @@ def main() -> int:
                 run(cmd)
             built = build(info["fpr"], version)
             sign(info["fpr"], built["paths"])
+            run([*zenodo, "collect", "--tag", f"v{version}"])
         except ReleaseError:
             say("\nNothing was published. To undo the local release commit "
                 "and tag (if it was made):\n"
@@ -547,6 +567,9 @@ def main() -> int:
         verify_download(version, built["files"])
         srpm = next(p for p in built["paths"] if p.endswith(".src.rpm"))
         copr(version, srpm)
+        if args.zenodo:
+            say("== Zenodo (a draft, not published)")
+            run([*zenodo, "upload"])
         say(f"\nReleased {version}: GitHub ({url}), Codeberg "
             f"(https://codeberg.org/{CODEBERG_REPO}/releases/tag/v{version}) "
             f"and Copr ({COPR_PROJECT}).")
