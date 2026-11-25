@@ -1,12 +1,19 @@
 {
   "title": "QuickView",
   "upload_type": "software",
-  "description": "<p>Quick Look style file previewer for KDE Plasma.</p>",
   "creators": [
     {
       "name": "Vaughan, Nicolas",
       "affiliation": "Universidad de los Andes",
       "orcid": "0000-0002-2877-0539"
+    }
+  ],
+  "contributors": [
+    {
+      "name": "Vaughan, Nicolas",
+      "affiliation": "Universidad de los Andes",
+      "orcid": "0000-0002-2877-0539",
+      "type": "ProjectLeader"
     }
   ],
   "license": "gpl-3.0-or-later",
@@ -15,5 +22,10 @@
     "file preview",
     "KDE Plasma",
     "Dolphin"
-  ]
+  ],
+  "languages": [
+    "eng"
+  ],
+  "programming_language": "python",
+  "development_status": "active"
 }

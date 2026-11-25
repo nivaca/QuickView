@@ -26,16 +26,27 @@ Antes comprueba la firma de la etiqueta, y después cada firma, como lo haría q
 GNUPGHOME temporal que solo tiene la clave pública. Si algo no se comprueba, no deja dist/zenodo/.
 
 upload sube dist/zenodo/ a Zenodo (o a sandbox.zenodo.org, con --sandbox) con los metadatos de .zenodo.json, más
-la versión, la fecha de la etiqueta y los enlaces a ella en los repositorios. Si ya hay en Zenodo un depósito
+la versión, la fecha de la etiqueta, los enlaces a ella en los repositorios y, como descripción, el README.md entero de
+la etiqueta, pasado a HTML. Después completa el borrador por la API de registros de Zenodo con lo que la de depósitos
+no recibe: los idiomas (las claves "languages" de .zenodo.json), el copyright (el año de la etiqueta y el primer
+autor), la dirección del repositorio en GitHub, el lenguaje de programación y el estado del desarrollo (las claves
+"programming_language" y "development_status"). Si ya hay en Zenodo un depósito
 publicado con el mismo título, hace una versión nueva de él (el DOI de concepto se mantiene); si no, uno nuevo.
-Nunca lo publica: deja un borrador y da su dirección, para revisarlo y publicarlo a mano. El token va en
-$ZENODO_TOKEN ($ZENODO_SANDBOX_TOKEN con --sandbox), con los permisos deposit:write y deposit:actions.
+Nunca lo publica: deja un borrador y da su dirección, para revisarlo y publicarlo a mano.
+
+El token, con los permisos deposit:write y deposit:actions, se toma de $ZENODO_TOKEN ($ZENODO_SANDBOX_TOKEN con
+--sandbox) o, si no está, del llavero del escritorio, donde lo guarda una vez
+
+    secret-tool store --label="Zenodo token" service zenodo
+
+(service zenodo-sandbox, el de sandbox.zenodo.org). check-token dice si hay uno, sin mostrarlo.
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
+import html
 import json
 import os
 import re
@@ -53,6 +64,8 @@ ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "dist" / "zenodo"
 METADATA = ROOT / ".zenodo.json"
 SERVERS = {False: ("https://zenodo.org", "ZENODO_TOKEN"), True: ("https://sandbox.zenodo.org", "ZENODO_SANDBOX_TOKEN")}
+# El servicio con que se guarda el token en el llavero (secret-tool), si no está en la variable
+KEYRING = {False: "zenodo", True: "zenodo-sandbox"}
 
 
 class Failed(Exception):
@@ -305,6 +318,162 @@ def check_deposit(out: Path = OUT) -> tuple[str, list[Path]]:
     return version, deposit_files(out)
 
 
+# ------------------------------------------------------------------ the README, as the description
+
+
+def escape(text: str) -> str:
+    # Las entidades que ya están (el &lt; de una dirección) se dejan como están
+    text = re.sub(r"&(?!#?\w+;)", "&amp;", text)
+    return text.replace("<", "&lt;").replace(">", "&gt;")
+
+
+def inline(text: str, base: str | None) -> str:
+    """One block's text in HTML: code, links (relative ones made absolute with BASE; <URL> and <EMAIL> too), bold
+    and italics. Images are left out: Zenodo doesn't take <img>."""
+    kept = []
+
+    def keep(fragment: str) -> str:
+        # Lo ya hecho HTML se aparta, para que ni el escape ni los ** lo toquen
+        kept.append(fragment)
+        return f"\x00{len(kept) - 1}\x01"
+
+    text = re.sub(r"(`+)(.+?)\1", lambda m: keep(f"<code>{html.escape(m.group(2).strip(), quote=False)}</code>"),
+                  text)
+    text = re.sub(r"<((?:https?|mailto):[^<>\s]+)>",
+                  lambda m: keep(f'<a href="{escape(m.group(1))}">{escape(m.group(1).removeprefix("mailto:"))}</a>'),
+                  text)
+    text = re.sub(r"<([^<>\s@]+@[^<>\s@]+\.[a-z]+)>",
+                  lambda m: keep(f'<a href="mailto:{escape(m.group(1))}">{escape(m.group(1))}</a>'), text)
+    text = escape(text)
+    text = re.sub(r"!\[[^\]]*\]\([^)]*\)", "", text)
+
+    def link(m: re.Match) -> str:
+        label, url = m.groups()
+        if url.startswith("#"):
+            return label
+        if not re.match(r"[a-z]+:", url) and base:
+            url = base + re.sub(r"^(\./)+", "", url)
+        return f'<a href="{url}">{label}</a>'
+
+    text = re.sub(r"\[([^\]]+)\]\(([^)\s]+)\)", link, text)
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    text = re.sub(r"(?<![\w*])\*(?!\s)(.+?)(?<!\s)\*(?![\w*])", r"<em>\1</em>", text)
+    while "\x00" in text:
+        text = re.sub(r"\x00(\d+)\x01", lambda m: kept[int(m.group(1))], text)
+    return text.strip()
+
+
+def markdown_html(text: str, base: str | None = None) -> str:
+    """A README in Markdown as the HTML Zenodo accepts in a description (p, ul, ol, li, table, pre, code, a,
+    strong, em, blockquote: no headings nor images, so a heading is a paragraph in bold, and a block of HTML is
+    left with its text only)."""
+    lines = text.expandtabs(4).splitlines()
+    blocks, i = [], 0
+    item = re.compile(r"^\s{0,3}([-*+]|\d+[.)])\s+")
+    rule = re.compile(r"^(=+|-+)\s*$")
+    fence = re.compile(r"^\s*(```+|~~~+)")
+
+    def code_block(code: list[str]) -> str:
+        while code and not code[-1].strip():
+            code.pop()
+        return f"<pre><code>{html.escape(chr(10).join(code), quote=False)}</code></pre>"
+
+    def fenced(start: int) -> tuple[list[str], int]:
+        # Las líneas de un bloque ``` que empieza en START (sin la sangría de la marca), y la línea que sigue
+        mark = fence.match(lines[start])
+        indent, ticks = len(lines[start]) - len(lines[start].lstrip()), mark.group(1)
+        end = start + 1
+        while end < len(lines) and not lines[end].strip().startswith(ticks):
+            end += 1
+        return [l[indent:] if l[:indent].isspace() else l.lstrip() for l in lines[start + 1:end]], end + 1
+
+    def starts_block(n: int) -> bool:
+        line = lines[n]
+        return (not line.strip() or bool(item.match(line)) or bool(fence.match(line))
+                or line.startswith(("#", "|", ">", "<"))
+                or (n + 1 < len(lines) and bool(rule.match(lines[n + 1])) and bool(line.strip())))
+
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip():
+            i += 1
+        elif fence.match(line):
+            code, i = fenced(i)
+            blocks.append(code_block(code))
+        elif line.startswith("    "):
+            end = i
+            while end < len(lines) and (lines[end].startswith("    ") or not lines[end].strip()):
+                end += 1
+            blocks.append(code_block([l[4:] for l in lines[i:end]]))
+            i = end
+        elif re.match(r"^</?[a-zA-Z][^>]*>", line) and not re.match(r"^<(?:https?|mailto):|^<[^<>\s@]+@", line):
+            # Un bloque de HTML (las imágenes centradas de un README): solo su texto, sin las etiquetas
+            end = i
+            while end < len(lines) and lines[end].strip():
+                end += 1
+            text_only = " ".join(re.sub(r"<[^>]*>", " ", " ".join(lines[i:end])).split())
+            if text_only:
+                blocks.append(f"<p>{inline(text_only, base)}</p>")
+            i = end
+        elif m := re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line):
+            blocks.append(f"<p><strong>{inline(m.group(2), base)}</strong></p>")
+            i += 1
+        elif i + 1 < len(lines) and rule.match(lines[i + 1]) and not item.match(line):
+            blocks.append(f"<p><strong>{inline(line.strip(), base)}</strong></p>")
+            i += 2
+        elif line.startswith("|"):
+            rows = []
+            while i < len(lines) and lines[i].startswith("|"):
+                cells = [c.strip() for c in re.split(r"(?<!\\)\|", lines[i].strip().strip("|"))]
+                if not all(re.fullmatch(r":?-+:?", c) for c in cells):
+                    rows.append([c.replace("\\|", "|") for c in cells])
+                i += 1
+            head, *body = rows or [[]]
+            blocks.append("<table><thead><tr>" + "".join(f"<th>{inline(c, base)}</th>" for c in head)
+                          + "</tr></thead><tbody>"
+                          + "".join("<tr>" + "".join(f"<td>{inline(c, base)}</td>" for c in r) + "</tr>"
+                                    for r in body) + "</tbody></table>")
+        elif line.startswith(">"):
+            quoted = []
+            while i < len(lines) and lines[i].startswith(">"):
+                quoted.append(lines[i][1:].strip())
+                i += 1
+            blocks.append(f"<blockquote><p>{inline(' '.join(quoted), base)}</p></blockquote>")
+        elif m := item.match(line):
+            tag = "ul" if m.group(1) in "-*+" else "ol"
+            # Cada elemento, en partes: texto (una lista de líneas) o un bloque de código ya en HTML
+            items: list[list] = []
+            while i < len(lines):
+                if m := item.match(lines[i]):
+                    items.append([[lines[i][m.end():].strip()]])
+                    i += 1
+                elif lines[i].strip() and lines[i].startswith(" ") and fence.match(lines[i]):
+                    code, i = fenced(i)
+                    items[-1] += [code_block(code), []]
+                elif lines[i].strip() and lines[i].startswith(" "):
+                    items[-1][-1].append(lines[i].strip())
+                    i += 1
+                elif (not lines[i].strip() and i + 1 < len(lines)
+                      and (item.match(lines[i + 1]) or lines[i + 1].startswith("  "))):
+                    i += 1
+                else:
+                    break
+            blocks.append(f"<{tag}>" + "".join(
+                "<li>" + " ".join(part if isinstance(part, str) else inline(" ".join(part), base)
+                                  for part in parts if part) + "</li>" for parts in items) + f"</{tag}>")
+        else:
+            paragraph = [line.strip()]
+            i += 1
+            while i < len(lines) and not starts_block(i):
+                paragraph.append(lines[i].strip())
+                i += 1
+            text_html = inline(" ".join(paragraph), base)
+            # (un párrafo de solo una imagen queda vacío)
+            if text_html:
+                blocks.append(f"<p>{text_html}</p>")
+    return "\n".join(blocks)
+
+
 # ------------------------------------------------------------------ upload
 
 
@@ -324,20 +493,98 @@ def repository_links(tag: str) -> list[dict[str, str]]:
     return sorted(links, key=lambda link: "codeberg.org" not in link["identifier"])
 
 
-def metadata(version: str) -> dict:
-    """The deposit's metadata: .zenodo.json, with the version, the tag's date and the links to the tag."""
+def repository() -> tuple[str, str] | None:
+    """The repository's address, GitHub's if it is on GitHub, or else Codeberg's, and the path of a tag in it
+    ("tree/{tag}" or "src/tag/{tag}"); None if it is on neither."""
+    found = {}
+    for line in git("remote", "-v").splitlines():
+        m = re.search(r"(codeberg\.org|github\.com)[:/]+([^/\s]+/[^/\s]+?)(?:\.git)?/?\s+\(push\)$", line)
+        if m:
+            found.setdefault(m.group(1), f"https://{m.group(1)}/{m.group(2)}")
+    if "github.com" in found:
+        return found["github.com"], "blob/{tag}/"
+    if "codeberg.org" in found:
+        return found["codeberg.org"], "src/tag/{tag}/"
+    return None
+
+
+# Lo que la API de depósitos no recibe: va después, por la de registros (InvenioRDM)
+RECORD_ONLY = ("languages", "programming_language", "development_status")
+
+
+def metadata(version: str) -> tuple[dict, dict]:
+    """The deposit's metadata: .zenodo.json, with the version, the tag's date, the links to the tag and the
+    README of the tag as the description; and what only the records API takes, for record_fields()."""
     if not METADATA.is_file():
         raise Failed("there is no .zenodo.json with the deposit's metadata")
     data = json.loads(METADATA.read_text(encoding="utf-8"))
     tag = next((t for t in (f"v{version}", version) if git("tag", "--list", t)), None)
     if not tag:
         raise Failed(f"there is no tag of version {version}")
+    extra = {key: data.pop(key) for key in RECORD_ONLY if key in data}
     data["version"] = version
     data["publication_date"] = git("log", "-1", "--format=%cs", f"{tag}^{{commit}}")
     links = repository_links(tag)
     known = {r.get("identifier") for r in data.get("related_identifiers", [])}
     data["related_identifiers"] = data.get("related_identifiers", []) + [l for l in links if l["identifier"] not in known]
-    return data
+    repo = repository()
+    if git("ls-tree", "--name-only", tag, "README.md"):
+        base = f"{repo[0]}/{repo[1].format(tag=tag)}" if repo else None
+        data["description"] = markdown_html(git("show", f"{tag}:README.md"), base)
+    if extra.get("languages"):
+        # (la API de depósitos recibe uno solo: el primero; los demás, record_fields())
+        data["language"] = extra["languages"][0]
+    if data.get("creators"):
+        name = data["creators"][0]["name"]
+        family, _, given = name.partition(", ")
+        extra["copyright"] = f"Copyright © {data['publication_date'][:4]} {f'{given} {family}' if given else name}"
+    if repo:
+        extra["repository"] = repo[0]
+    return data, extra
+
+
+# Con "application/json", Zenodo da los registros en el formato de la API de depósitos, sin languages ni copyright
+# ni custom_fields: el de InvenioRDM hay que pedirlo
+RDM_JSON = "application/vnd.inveniordm.v1+json"
+
+
+def languages(value) -> list[str]:
+    # "programming_language" puede ser uno ("python") o varios (["kotlin", "c++"])
+    return [value] if isinstance(value, str) else list(value or [])
+
+
+def missing_fields(record: dict, extra: dict) -> list[str]:
+    """Those of EXTRA's fields that RECORD (as the records API gives it, in RDM_JSON) doesn't have."""
+    meta, custom = record.get("metadata") or {}, record.get("custom_fields") or {}
+    have = {
+        "languages": [l.get("id") for l in meta.get("languages") or []] == list(extra.get("languages") or []),
+        "copyright": meta.get("copyright") == extra.get("copyright"),
+        "repository": custom.get("code:codeRepository") == extra.get("repository"),
+        "programming_language": [l.get("id") for l in custom.get("code:programmingLanguage") or []]
+                                == languages(extra.get("programming_language")),
+        "development_status": (custom.get("code:developmentStatus") or {}).get("id") == extra.get("development_status"),
+    }
+    return [key for key in extra if not have.get(key, True)]
+
+
+def record_fields(record: dict, extra: dict) -> dict:
+    """RECORD (a draft as the records API gives it) with the fields of EXTRA that the deposit API doesn't take:
+    the languages, the copyright and the software's fields (repository, programming language, status)."""
+    meta = record.setdefault("metadata", {})
+    custom = record.get("custom_fields") or {}
+    record["custom_fields"] = custom
+    if extra.get("languages"):
+        meta["languages"] = [{"id": code} for code in extra["languages"]]
+    if extra.get("copyright"):
+        meta["copyright"] = extra["copyright"]
+    if extra.get("repository"):
+        custom["code:codeRepository"] = extra["repository"]
+    if extra.get("programming_language"):
+        custom["code:programmingLanguage"] = [{"id": code} for code in languages(extra["programming_language"])]
+    if extra.get("development_status"):
+        custom["code:developmentStatus"] = {"id": extra["development_status"]}
+    # Solo lo que se puede escribir; links, revision_id, etc. son de lectura
+    return {k: record[k] for k in ("access", "files", "metadata", "custom_fields", "pids") if k in record}
 
 
 class Zenodo:
@@ -346,10 +593,11 @@ class Zenodo:
     def __init__(self, base: str, token: str):
         self.base, self.token = base.rstrip("/"), token
 
-    def call(self, method: str, url: str, body: dict | None = None, data=None, size: int | None = None):
+    def call(self, method: str, url: str, body: dict | None = None, data=None, size: int | None = None,
+             accept: str = "application/json"):
         if not url.startswith("http"):
             url = f"{self.base}/api/{url}"
-        headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/json"}
+        headers = {"Authorization": f"Bearer {self.token}", "Accept": accept}
         if body is not None:
             data = json.dumps(body).encode()
             headers["Content-Type"] = "application/json"
@@ -410,32 +658,70 @@ def prepare_draft(api: Zenodo, title: str, new_version_of: str | None) -> dict:
     return api.call("GET", f"deposit/depositions/{draft['id']}")
 
 
+def keyring(service: str) -> str | None:
+    """The token kept in the desktop keyring for SERVICE (secret-tool lookup service SERVICE), or None if there is
+    no secret-tool, no keyring or no such entry."""
+    if not shutil.which("secret-tool"):
+        return None
+    try:
+        done = subprocess.run(["secret-tool", "lookup", "service", service], capture_output=True, text=True,
+                              timeout=120, check=False)
+    except subprocess.TimeoutExpired:
+        # (el llavero cerrado pide la contraseña; si nadie la da, se sigue sin token)
+        return None
+    return done.stdout.strip() if done.returncode == 0 and done.stdout.strip() else None
+
+
+def token(sandbox: bool) -> str:
+    """The Zenodo token: $ZENODO_TOKEN ($ZENODO_SANDBOX_TOKEN), or else the one in the keyring."""
+    base, variable = SERVERS[sandbox]
+    found, where = os.environ.get(variable), f"${variable}"
+    if not found:
+        found, where = keyring(KEYRING[sandbox]), f"the keyring (service {KEYRING[sandbox]})"
+    if not found:
+        raise Failed(f"there is no Zenodo token in ${variable} nor in the keyring; make one at "
+                     f"{base}/account/settings/applications/ (with deposit:write and deposit:actions) and keep it "
+                     f'with: secret-tool store --label="Zenodo token" service {KEYRING[sandbox]}')
+    # Un token de Zenodo es ASCII, sin espacios; otra cosa (el "…" de un ejemplo copiado) no llegaría a la cabecera
+    if not found.isascii() or not found.isprintable() or any(c.isspace() for c in found):
+        raise Failed(f"the token in {where} is not a Zenodo token (it has spaces or characters that are not "
+                     f"ASCII); put there the token made at {base}/account/settings/applications/")
+    return found
+
+
 def upload(sandbox: bool, new_version_of: str | None, dry_run: bool) -> str:
     """dist/zenodo/ to a draft on Zenodo; the draft's address (or, with DRY_RUN, nothing sent and "")."""
     version, files = check_deposit()
-    data = metadata(version)
-    base, variable = SERVERS[sandbox]
+    data, extra = metadata(version)
+    base, _variable = SERVERS[sandbox]
     print(f"Deposit of {data['title']} {version} on {base}, as a draft:")
     for path in files:
         print(f"  {path.name}  ({path.stat().st_size:,} bytes)")
     print(json.dumps(data, indent=2, ensure_ascii=False))
+    print("Then, through the records API:")
+    print(json.dumps(extra, indent=2, ensure_ascii=False))
     if dry_run:
         return ""
-    token = os.environ.get(variable)
-    if not token:
-        raise Failed(f"put a Zenodo token in ${variable} (made at {base}/account/settings/applications/, "
-                     "with deposit:write and deposit:actions)")
-    # Un token de Zenodo es ASCII, sin espacios; otra cosa (el "…" de un ejemplo copiado) no llegaría a la cabecera
-    if not token.isascii() or not token.isprintable() or any(c.isspace() for c in token):
-        raise Failed(f"${variable} is not a Zenodo token (it has spaces or characters that are not ASCII); "
-                     f"put in it the token made at {base}/account/settings/applications/")
-    api = Zenodo(base, token)
+    api = Zenodo(base, token(sandbox))
     draft = prepare_draft(api, data["title"], new_version_of)
     for path in files:
         print(f"  uploading {path.name}", flush=True)
         api.upload(draft, path)
     api.call("PUT", f"deposit/depositions/{draft['id']}", body={"metadata": data})
-    return draft["links"].get("html") or f"{base}/uploads/{draft['id']}"
+    url = draft["links"].get("html") or f"{base}/uploads/{draft['id']}"
+    if extra:
+        try:
+            record = api.call("GET", f"records/{draft['id']}/draft", accept=RDM_JSON)
+            saved = api.call("PUT", f"records/{draft['id']}/draft", body=record_fields(record, extra), accept=RDM_JSON)
+            # Se vuelve a leer: lo que Zenodo no guardó se dice, en vez de darlo por hecho
+            missing = missing_fields(api.call("GET", f"records/{draft['id']}/draft", accept=RDM_JSON), extra)
+        except Failed as e:
+            raise Failed(f"{e}\nThe draft is there with its files, but without {', '.join(extra)}: add them by hand "
+                         f"at {url}") from None
+        if missing:
+            errors = f" ({json.dumps(saved['errors'], ensure_ascii=False)})" if saved and saved.get("errors") else ""
+            raise Failed(f"Zenodo did not keep {', '.join(missing)} in the draft{errors}; add them by hand at {url}")
+    return url
 
 
 # ------------------------------------------------------------------ main
@@ -449,10 +735,13 @@ def main(argv=None) -> int:
     c.add_argument("--packages", action="store_true",
                    help="also the files published with the release (those of dist/SHA256SUMS)")
     u = commands.add_parser("upload", help="upload dist/zenodo/ to Zenodo as a draft (never published)")
-    u.add_argument("--sandbox", action="store_true", help="to sandbox.zenodo.org, to try it ($ZENODO_SANDBOX_TOKEN)")
+    u.add_argument("--sandbox", action="store_true", help="to sandbox.zenodo.org, to try it")
     u.add_argument("--new-version-of", metavar="ID", help="the deposit this is a new version of (default: the one "
                                                           "with the same title)")
     u.add_argument("-n", "--dry-run", action="store_true", help="only check dist/zenodo/ and show what would go")
+    t = commands.add_parser("check-token", help="say whether there is a Zenodo token ($ZENODO_TOKEN or the "
+                                                "keyring), without showing it")
+    t.add_argument("--sandbox", action="store_true", help="the token of sandbox.zenodo.org")
     args = parser.parse_args(argv)
     try:
         if args.command == "collect":
@@ -460,6 +749,9 @@ def main(argv=None) -> int:
             print(f"In {OUT.relative_to(ROOT)}/, signed and checked with the published key:")
             for path in files:
                 print(f"  {path.name}")
+        elif args.command == "check-token":
+            token(args.sandbox)
+            print("There is a Zenodo token.")
         else:
             url = upload(args.sandbox, args.new_version_of, args.dry_run)
             if url:

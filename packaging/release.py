@@ -45,7 +45,7 @@ order, stopping at the first thing that fails:
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
 7. Unless --no-zenodo, uploads dist/zenodo/ to Zenodo as a draft (the token
-   in $ZENODO_TOKEN). The draft is never published here: review it and
+   in $ZENODO_TOKEN or the keyring). The draft is never published here: review it and
    publish it on Zenodo by hand.
 
 --dry-run does step 1 and prints what step 2 would write, the commands
@@ -82,6 +82,16 @@ TEA_LOGIN = "codeberg"      # (the login of tea for codeberg.org)
 COPR_PROJECT = "nivaca/quickview"
 AUTHOR = "Nicolas Vaughan <nicolasvaughan@proton.me>"
 UNRELEASED = "## Unreleased"
+
+
+def zenodo_token() -> bool:
+    """Whether tools/zenodo.py finds a Zenodo token, in $ZENODO_TOKEN or
+    in the desktop keyring (secret-tool)."""
+    tool = os.path.join(os.path.dirname(os.path.dirname(
+        os.path.abspath(__file__))), "tools", "zenodo.py")
+    done = subprocess.run([sys.executable, tool, "check-token"],
+                          capture_output=True, check=False)
+    return done.returncode == 0
 
 
 class ReleaseError(Exception):
@@ -471,7 +481,7 @@ def main() -> int:
     parser.add_argument("--no-zenodo", action="store_true",
                         help="don't upload dist/zenodo/ to Zenodo (by default "
                              "it goes as a draft, never published, with the "
-                             "token in $ZENODO_TOKEN)")
+                             "token in $ZENODO_TOKEN or the keyring)")
     parser.add_argument("--dry-run", action="store_true",
                         help="check everything and show what would be "
                              "written, changing nothing")
@@ -480,8 +490,8 @@ def main() -> int:
     today = datetime.date.today()
     zenodo = [sys.executable, os.path.join(ROOT, "tools", "zenodo.py")]
     # Sin token se para aquí, antes de hacer nada, y no al final
-    if not args.no_zenodo and not args.dry_run and not os.environ.get("ZENODO_TOKEN"):
-        say("release: the upload to Zenodo needs a token in $ZENODO_TOKEN; "
+    if not args.no_zenodo and not args.dry_run and not zenodo_token():
+        say("release: the upload to Zenodo needs a token in $ZENODO_TOKEN or the keyring; "
             "--no-zenodo leaves it out")
         return 1
     try:

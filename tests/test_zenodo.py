@@ -112,6 +112,19 @@ class FakeZenodo(BaseHTTPRequestHandler):
             if method == "POST" and parts[4:5] == ["actions"]:
                 state["published"] = True
                 return self.reply(202, self.deposition(d))
+        if parts[:2] == ["api", "records"] and parts[3:] == ["draft"]:
+            # La API de registros (InvenioRDM): el mismo borrador, con sus campos de solo lectura
+            # Como Zenodo: con "application/json", el formato de la API de depósitos; el de InvenioRDM hay que pedirlo
+            d = deps[int(parts[2])]
+            if method == "GET" and self.headers.get("Accept") != "application/vnd.inveniordm.v1+json":
+                return self.reply(200, self.deposition(d))
+            if method == "GET":
+                return self.reply(200, d.get("record") or {
+                    "id": str(d["id"]), "metadata": {"title": d["metadata"].get("title")}, "custom_fields": {},
+                    "access": {"record": "public"}, "files": {"enabled": True}, "links": {}, "revision_id": 3})
+            if method == "PUT":
+                d["record"] = json.loads(body)
+                return self.reply(200, d["record"])
         if method == "PUT" and parts[0] == "files":
             d = deps[int(parts[1][1:])]
             d["files"].append({"id": parts[2], "filename": parts[2]})
@@ -155,8 +168,9 @@ class ZenodoTest(unittest.TestCase):
         (self.root / "packaging").mkdir()
         (self.root / "packaging" / "RPM-GPG-KEY-demo").write_bytes(self.public)
         (self.root / "README.md").write_text("demo\n")
-        (self.root / ".zenodo.json").write_text(json.dumps({"title": "demo", "upload_type": "software",
-                                                             "creators": [{"name": "Vaughan, Nicolas"}]}))
+        (self.root / ".zenodo.json").write_text(json.dumps({
+            "title": "demo", "upload_type": "software", "creators": [{"name": "Vaughan, Nicolas"}],
+            "languages": ["eng", "spa"], "programming_language": "python", "development_status": "active"}))
         self.git("init", "--quiet", "--initial-branch=main")
         self.git("config", "user.name", "Test")
         self.git("config", "user.email", "test@example.org")
@@ -170,6 +184,9 @@ class ZenodoTest(unittest.TestCase):
         (self.root / "README.md").write_text("demo, later\n")
         self.git("commit", "--quiet", "-am", "later")
         self.tool = self.load()
+        # Nunca el llavero de quien corre las pruebas
+        self.keyring = {}
+        self.tool.keyring = self.keyring.get
 
     def tearDown(self):
         os.environ.clear()
@@ -280,8 +297,17 @@ class ZenodoTest(unittest.TestCase):
         return server.state
 
     def test_metadata(self):
-        data = self.tool.metadata("1.0")
+        data, extra = self.tool.metadata("1.0")
         self.assertEqual(data["version"], "1.0")
+        # El README de la etiqueta, no el de después
+        self.assertEqual(data["description"], "<p>demo</p>")
+        self.assertEqual(data["language"], "eng")
+        for key in ("languages", "programming_language", "development_status"):
+            self.assertNotIn(key, data)
+        year = data["publication_date"][:4]
+        self.assertEqual(extra, {"languages": ["eng", "spa"], "programming_language": "python",
+                                 "development_status": "active", "copyright": f"Copyright © {year} Nicolas Vaughan",
+                                 "repository": "https://github.com/someone/demo"})
         self.assertRegex(data["publication_date"], r"^\d{4}-\d\d-\d\d$")
         self.assertEqual([r["identifier"] for r in data["related_identifiers"]],
                          ["https://codeberg.org/someone/demo/src/tag/v1.0", "https://github.com/someone/demo/tree/v1.0"])
@@ -298,6 +324,17 @@ class ZenodoTest(unittest.TestCase):
         self.assertEqual(set(uploaded), {p.name for p in self.tool.deposit_files()})
         self.assertEqual(uploaded["demo-1.0-source.tar.gz"], (self.tool.OUT / "demo-1.0-source.tar.gz").read_bytes())
         self.assertEqual(draft["metadata"]["version"], "1.0")
+        record = draft["record"]
+        self.assertEqual(record["metadata"]["languages"], [{"id": "eng"}, {"id": "spa"}])
+        self.assertRegex(record["metadata"]["copyright"], r"^Copyright © \d{4} Nicolas Vaughan$")
+        self.assertEqual(record["custom_fields"], {
+            "code:codeRepository": "https://github.com/someone/demo",
+            "code:programmingLanguage": [{"id": "python"}], "code:developmentStatus": {"id": "active"}})
+        self.assertNotIn("links", record)
+        # Lo que se manda es el borrador en el formato de InvenioRDM, no en el de la API de depósitos
+        self.assertEqual(record["access"], {"record": "public"})
+        self.assertEqual(record["files"], {"enabled": True})
+        self.assertNotIn("revision_id", record)
 
     def test_next_upload_is_a_new_version_without_the_old_files(self):
         self.tool.collect(None, packages=False)
@@ -327,6 +364,62 @@ class ZenodoTest(unittest.TestCase):
             with self.assertRaisesRegex(self.tool.Failed, "is not a Zenodo token"):
                 self.tool.upload(sandbox=True, new_version_of=None, dry_run=False)
         self.assertEqual(state["calls"], [])
+
+    def test_readme_as_html(self):
+        """What Zenodo takes in a description: headings as bold paragraphs, no images, relative links made
+        absolute, lists with their continuation lines, tables and code."""
+        readme = ("Demo\n====\n\nIt *plays* **music**.\n\n![shot](docs/a.png)\n\nUsage\n-----\n\n"
+                  "- one, with `a<b>`\n  and more\n- see [the manual](docs/M.pdf) or [web](https://x.org)\n\n"
+                  "| Key | Does |\n|-----|------|\n| B | mark |\n\n    uv run demo\n\nA &lt;b&gt; & c\n")
+        self.assertEqual(self.tool.markdown_html(readme, "https://github.com/someone/demo/blob/v1.0/"), "\n".join([
+            "<p><strong>Demo</strong></p>",
+            "<p>It <em>plays</em> <strong>music</strong>.</p>",
+            "<p><strong>Usage</strong></p>",
+            '<ul><li>one, with <code>a&lt;b&gt;</code> and more</li><li>see <a href="https://github.com/someone/demo/'
+            'blob/v1.0/docs/M.pdf">the manual</a> or <a href="https://x.org">web</a></li></ul>',
+            "<table><thead><tr><th>Key</th><th>Does</th></tr></thead><tbody><tr><td>B</td><td>mark</td></tr>"
+            "</tbody></table>",
+            "<pre><code>uv run demo</code></pre>",
+            "<p>A &lt;b&gt; &amp; c</p>"]))
+
+    def test_fields_zenodo_did_not_keep_stop_upload(self):
+        """If the draft, read again, lacks a field that was sent (Spanish, say), upload says so."""
+        self.tool.collect(None, packages=False)
+        self.serve({})
+        keep = self.tool.record_fields
+        self.tool.record_fields = lambda record, extra: keep(record, dict(extra, languages=["eng"]))
+        with self.assertRaisesRegex(self.tool.Failed, "did not keep languages"):
+            self.tool.upload(sandbox=True, new_version_of=None, dry_run=False)
+
+    def test_the_token_from_the_keyring(self):
+        """Without $ZENODO_SANDBOX_TOKEN, the token kept in the keyring (service zenodo-sandbox) is used; with
+        neither, upload stops before sending anything, saying how to keep one."""
+        self.tool.collect(None, packages=False)
+        state = self.serve({})
+        del os.environ["ZENODO_SANDBOX_TOKEN"]
+        with self.assertRaisesRegex(self.tool.Failed, "secret-tool store .* service zenodo-sandbox"):
+            self.tool.upload(sandbox=True, new_version_of=None, dry_run=False)
+        self.assertEqual(state["calls"], [])
+        self.keyring["zenodo"] = "secret"  # (el de zenodo.org no sirve para sandbox)
+        with self.assertRaises(self.tool.Failed):
+            self.tool.token(sandbox=True)
+        self.keyring["zenodo-sandbox"] = "secret"
+        self.assertTrue(self.tool.upload(sandbox=True, new_version_of=None, dry_run=False))
+        self.assertEqual(self.tool.main(["check-token", "--sandbox"]), 0)
+
+    def test_readme_as_html_other_readmes(self):
+        """What other READMEs have: <URL> and <EMAIL>, code in a link or in bold, a block of HTML with images, a
+        fenced block inside a list item, and several programming languages."""
+        readme = ('<p align="center">\n  <img src="a.png" alt="shot">\n</p>\n\n'
+                  "See [`docs/D.md`](docs/D.md), **`run.py`** and <https://x.org>; Me <me@example.org>.\n\n"
+                  "1. Install:\n\n   ```sh\n   pip install demo\n   ```\n\n   then run it.\n")
+        self.assertEqual(self.tool.markdown_html(readme, "https://github.com/someone/demo/blob/v1.0/"), "\n".join([
+            '<p>See <a href="https://github.com/someone/demo/blob/v1.0/docs/D.md"><code>docs/D.md</code></a>, '
+            '<strong><code>run.py</code></strong> and <a href="https://x.org">https://x.org</a>; Me '
+            '<a href="mailto:me@example.org">me@example.org</a>.</p>',
+            "<ol><li>Install: <pre><code>pip install demo</code></pre> then run it.</li></ol>"]))
+        self.assertEqual(self.tool.languages("python"), ["python"])
+        self.assertEqual(self.tool.languages(["kotlin", "c++"]), ["kotlin", "c++"])
 
     def test_dry_run_sends_nothing(self):
         self.tool.collect(None, packages=False)
