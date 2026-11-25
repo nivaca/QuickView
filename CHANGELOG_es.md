@@ -35,6 +35,9 @@ las entradas llevan fecha.
   QuickView Settings están ahora en el submenú **Folder tools** del menú
   contextual de Dolphin, no en su primer nivel. El atajo de la barra
   espaciadora no cambia.
+- `tools/zenodo.py`: la descripción del depósito deja fuera la línea que
+  lleva a los README en otras lenguas y la sección Screenshots, cuyas
+  imágenes Zenodo no muestra.
 
 ## 1.0.4 — 2026-11-24
 

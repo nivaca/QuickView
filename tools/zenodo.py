@@ -363,6 +363,41 @@ def inline(text: str, base: str | None) -> str:
     return text.strip()
 
 
+# La línea que lleva a los README en otras lenguas ("*Leer en español: [README_es.md](README_es.md).*",
+# "*(Español: [README_es.md](...); Latine: [README_la.md](...))*"): en Zenodo no lleva a ninguna parte
+OTHER_READMES = re.compile(r"^\s*[*_].*\]\([^)\s]*README[._][A-Za-z]{2}(?:[-_][A-Za-z]{2,4})?\.md\).*[*_]\s*$")
+# Secciones que no van en la descripción: las capturas, cuyas imágenes Zenodo no muestra
+LEFT_OUT = re.compile(r"screenshots?", re.IGNORECASE)
+
+
+def description_markdown(text: str) -> str:
+    """The README without what makes no sense in Zenodo's description: the line that points to the README in
+    other languages and the Screenshots section (down to the next heading of its level or higher)."""
+    lines = text.splitlines()
+    kept, skipping, in_fence, i = [], None, False, 0
+    fence = re.compile(r"^\s*(```+|~~~+)")
+    while i < len(lines):
+        line, heading, width = lines[i], None, 1
+        if fence.match(line):
+            in_fence = not in_fence
+        elif not in_fence:
+            if m := re.match(r"^(#{1,6})\s+(.*?)\s*#*\s*$", line):
+                heading = len(m.group(1)), m.group(2)
+            elif (line.strip() and i + 1 < len(lines) and re.match(r"^(=+|-+)\s*$", lines[i + 1])
+                  and not re.match(r"^\s{0,3}([-*+]|\d+[.)])\s+", line)):
+                heading, width = (1 if lines[i + 1].startswith("=") else 2, line.strip()), 2
+        if heading:
+            level, title = heading
+            if skipping is not None and level <= skipping:
+                skipping = None
+            if skipping is None and LEFT_OUT.fullmatch(title.strip()):
+                skipping = level
+        if skipping is None and not (not in_fence and OTHER_READMES.match(line)):
+            kept.extend(lines[i:i + width])
+        i += width
+    return "\n".join(kept) + "\n"
+
+
 def markdown_html(text: str, base: str | None = None) -> str:
     """A README in Markdown as the HTML Zenodo accepts in a description (p, ul, ol, li, table, pre, code, a,
     strong, em, blockquote: no headings nor images, so a heading is a paragraph in bold, and a block of HTML is
@@ -530,7 +565,7 @@ def metadata(version: str) -> tuple[dict, dict]:
     repo = repository()
     if git("ls-tree", "--name-only", tag, "README.md"):
         base = f"{repo[0]}/{repo[1].format(tag=tag)}" if repo else None
-        data["description"] = markdown_html(git("show", f"{tag}:README.md"), base)
+        data["description"] = markdown_html(description_markdown(git("show", f"{tag}:README.md")), base)
     if extra.get("languages"):
         # (la API de depósitos recibe uno solo: el primero; los demás, record_fields())
         data["language"] = extra["languages"][0]

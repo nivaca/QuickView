@@ -34,6 +34,9 @@ project has no version tags yet, so entries are dated.
   Settings now sit in the **Folder tools** submenu of Dolphin's
   right-click menu, not at its top level. The Space shortcut is not
   affected.
+- `tools/zenodo.py`: the description of the deposit leaves out the line
+  that points to the README in other languages and the Screenshots section,
+  whose images Zenodo does not show.
 
 ## 1.0.4 — 2026-11-24
 

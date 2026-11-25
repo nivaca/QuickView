@@ -421,6 +421,19 @@ class ZenodoTest(unittest.TestCase):
         self.assertEqual(self.tool.languages("python"), ["python"])
         self.assertEqual(self.tool.languages(["kotlin", "c++"]), ["kotlin", "c++"])
 
+    def test_the_description_leaves_out_other_readmes_and_screenshots(self):
+        """The line that points to the README in other languages and the Screenshots section (to the next
+        heading of its level or higher, whether # or underlined) are not in the description."""
+        readme = ("Demo\n====\n\n*Leer en español: [README_es.md](README_es.md).*\n\nIt plays.\n\n"
+                  "*(Español: [README_es.md](README_es.md); Latine: [README_la.md](README_la.md))*\n\n"
+                  "*[Leer en español](https://github.com/someone/demo/blob/main/README.es.md)*\n\n"
+                  "Screenshots\n-----------\n\n![a](a.png)\n\n### Main window\n\nText.\n\n"
+                  "Usage\n-----\n\n```\n# Screenshots\n```\n\n## Screenshots\n\n![b](b.png)\n\n"
+                  "# Licence\n\n*Italics, see [README.md](README.md).*\n")
+        self.assertEqual(self.tool.description_markdown(readme), "Demo\n====\n\n\nIt plays.\n\n\n\n"
+                         "Usage\n-----\n\n```\n# Screenshots\n```\n\n# Licence\n\n"
+                         "*Italics, see [README.md](README.md).*\n")
+
     def test_dry_run_sends_nothing(self):
         self.tool.collect(None, packages=False)
         state = self.serve({})
