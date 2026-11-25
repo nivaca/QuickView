@@ -302,6 +302,16 @@ class ZenodoTest(unittest.TestCase):
             self.tool.upload(sandbox=True, new_version_of=None, dry_run=False)
         self.assertEqual([c for c in state["calls"] if c[0] != "GET"], [])
 
+    def test_a_token_that_is_not_one_stops_upload(self):
+        """A placeholder copied from an example ("…") is refused before anything is sent."""
+        self.tool.collect(None, packages=False)
+        state = self.serve({})
+        for token in ("\u2026", "two words", "secret\n"):
+            os.environ["ZENODO_SANDBOX_TOKEN"] = token
+            with self.assertRaisesRegex(self.tool.Failed, "is not a Zenodo token"):
+                self.tool.upload(sandbox=True, new_version_of=None, dry_run=False)
+        self.assertEqual(state["calls"], [])
+
     def test_dry_run_sends_nothing(self):
         self.tool.collect(None, packages=False)
         state = self.serve({})

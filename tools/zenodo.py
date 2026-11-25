@@ -421,6 +421,10 @@ def upload(sandbox: bool, new_version_of: str | None, dry_run: bool) -> str:
     if not token:
         raise Failed(f"put a Zenodo token in ${variable} (made at {base}/account/settings/applications/, "
                      "with deposit:write and deposit:actions)")
+    # Un token de Zenodo es ASCII, sin espacios; otra cosa (el "…" de un ejemplo copiado) no llegaría a la cabecera
+    if not token.isascii() or not token.isprintable() or any(c.isspace() for c in token):
+        raise Failed(f"${variable} is not a Zenodo token (it has spaces or characters that are not ASCII); "
+                     f"put in it the token made at {base}/account/settings/applications/")
     api = Zenodo(base, token)
     draft = prepare_draft(api, data["title"], new_version_of)
     for path in files:
