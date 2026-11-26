@@ -8,10 +8,11 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Prepara el depósito de una versión en Zenodo y lo sube como borrador, sin publicarlo.
+"""Prepara el depósito de una versión en Zenodo, lo sube y, si se pide, lo publica.
 
     python tools/zenodo.py collect [--tag vX.Y] [--packages]
-    python tools/zenodo.py upload [--sandbox] [--new-version-of ID] [--dry-run]
+    python tools/zenodo.py upload [--sandbox] [--new-version-of ID] [--publish] [--dry-run]
+    python tools/zenodo.py publish [--sandbox] [ID]
 
 collect reúne en dist/zenodo/ lo que se deposita de la versión (la última etiqueta, o --tag):
 
@@ -32,7 +33,11 @@ no recibe: los idiomas (las claves "languages" de .zenodo.json), el copyright (e
 autor), la dirección del repositorio en GitHub, el lenguaje de programación y el estado del desarrollo (las claves
 "programming_language" y "development_status"). Si ya hay en Zenodo un depósito
 publicado con el mismo título, hace una versión nueva de él (el DOI de concepto se mantiene); si no, uno nuevo.
-Nunca lo publica: deja un borrador y da su dirección, para revisarlo y publicarlo a mano.
+Sin --publish deja un borrador y da su dirección, para revisarlo y publicarlo a mano; con --publish lo publica al
+final y da su DOI (publicar no se deshace: el DOI queda).
+
+publish publica un borrador que ya está en Zenodo: el de ID, o el que espera con el título de .zenodo.json (por
+ejemplo uno que upload dejó sin publicar, que impide hacer la versión siguiente).
 
 El token, con los permisos deposit:write y deposit:actions, se toma de $ZENODO_TOKEN ($ZENODO_SANDBOX_TOKEN con
 --sandbox) o, si no está, del llavero del escritorio, donde lo guarda una vez
@@ -59,7 +64,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-DESCRIPTION = "Collect a release's files for Zenodo in dist/zenodo/, signed and checked, and upload them as a draft."
+DESCRIPTION = ("Collect a release's files for Zenodo in dist/zenodo/, signed and checked, upload them, and "
+               "publish them if asked.")
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "dist" / "zenodo"
 METADATA = ROOT / ".zenodo.json"
@@ -693,6 +699,40 @@ def prepare_draft(api: Zenodo, title: str, new_version_of: str | None) -> dict:
     return api.call("GET", f"deposit/depositions/{draft['id']}")
 
 
+def publish_draft(api: Zenodo, draft_id) -> dict:
+    """Publishes the draft DRAFT_ID; the published deposition (with its DOI)."""
+    return api.call("POST", f"deposit/depositions/{draft_id}/actions/publish")
+
+
+def waiting_draft(api: Zenodo, title: str) -> dict:
+    """The one draft of TITLE that waits to be published."""
+    mine = [d for d in api.depositions() if d.get("metadata", {}).get("title") == title or d.get("title") == title]
+    waiting = [d for d in mine if not d.get("submitted")]
+    if not waiting:
+        raise Failed(f"there is no draft of {title} on Zenodo to publish")
+    if len(waiting) > 1:
+        raise Failed(f"several drafts of {title} wait on Zenodo; say which with its ID")
+    return waiting[0]
+
+
+def published(done: dict, base: str) -> str:
+    """What to say of a published deposition: its DOI and address."""
+    doi = done.get("doi") or done.get("metadata", {}).get("doi") or "?"
+    url = done.get("links", {}).get("record_html") or done.get("links", {}).get("html") or \
+        f"{base}/records/{done.get('id')}"
+    return f"{doi}  {url}"
+
+
+def publish(sandbox: bool, draft_id: str | None) -> str:
+    """Publishes a draft already on Zenodo (DRAFT_ID, or the one waiting with the title of .zenodo.json)."""
+    base, _variable = SERVERS[sandbox]
+    api = Zenodo(base, token(sandbox))
+    if not draft_id:
+        title = json.loads(METADATA.read_text(encoding="utf-8"))["title"]
+        draft_id = waiting_draft(api, title)["id"]
+    return published(publish_draft(api, draft_id), base)
+
+
 def keyring(service: str) -> str | None:
     """The token kept in the desktop keyring for SERVICE (secret-tool lookup service SERVICE), or None if there is
     no secret-tool, no keyring or no such entry."""
@@ -724,12 +764,13 @@ def token(sandbox: bool) -> str:
     return found
 
 
-def upload(sandbox: bool, new_version_of: str | None, dry_run: bool) -> str:
-    """dist/zenodo/ to a draft on Zenodo; the draft's address (or, with DRY_RUN, nothing sent and "")."""
+def upload(sandbox: bool, new_version_of: str | None, dry_run: bool, publish: bool = False) -> str:
+    """dist/zenodo/ to a draft on Zenodo, published with PUBLISH; the draft's address, or the DOI and address of
+    what was published (with DRY_RUN, nothing sent and "")."""
     version, files = check_deposit()
     data, extra = metadata(version)
     base, _variable = SERVERS[sandbox]
-    print(f"Deposit of {data['title']} {version} on {base}, as a draft:")
+    print(f"Deposit of {data['title']} {version} on {base}, {'to be published' if publish else 'as a draft'}:")
     for path in files:
         print(f"  {path.name}  ({path.stat().st_size:,} bytes)")
     print(json.dumps(data, indent=2, ensure_ascii=False))
@@ -756,6 +797,9 @@ def upload(sandbox: bool, new_version_of: str | None, dry_run: bool) -> str:
         if missing:
             errors = f" ({json.dumps(saved['errors'], ensure_ascii=False)})" if saved and saved.get("errors") else ""
             raise Failed(f"Zenodo did not keep {', '.join(missing)} in the draft{errors}; add them by hand at {url}")
+    if publish:
+        # (solo con todo en el borrador: lo que falte se dice antes, y entonces no se publica)
+        return published(publish_draft(api, draft["id"]), base)
     return url
 
 
@@ -769,11 +813,16 @@ def main(argv=None) -> int:
     c.add_argument("--tag", help="the release's tag (default: the last one)")
     c.add_argument("--packages", action="store_true",
                    help="also the files published with the release (those of dist/SHA256SUMS)")
-    u = commands.add_parser("upload", help="upload dist/zenodo/ to Zenodo as a draft (never published)")
+    u = commands.add_parser("upload", help="upload dist/zenodo/ to Zenodo as a draft, published with --publish")
     u.add_argument("--sandbox", action="store_true", help="to sandbox.zenodo.org, to try it")
     u.add_argument("--new-version-of", metavar="ID", help="the deposit this is a new version of (default: the one "
                                                           "with the same title)")
+    u.add_argument("--publish", action="store_true", help="publish it at the end (a DOI, which cannot be undone)")
     u.add_argument("-n", "--dry-run", action="store_true", help="only check dist/zenodo/ and show what would go")
+    p = commands.add_parser("publish", help="publish a draft already on Zenodo (ID, or the one waiting with the "
+                                            "title of .zenodo.json)")
+    p.add_argument("id", nargs="?", help="the draft's ID")
+    p.add_argument("--sandbox", action="store_true", help="on sandbox.zenodo.org")
     t = commands.add_parser("check-token", help="say whether there is a Zenodo token ($ZENODO_TOKEN or the "
                                                 "keyring), without showing it")
     t.add_argument("--sandbox", action="store_true", help="the token of sandbox.zenodo.org")
@@ -787,9 +836,13 @@ def main(argv=None) -> int:
         elif args.command == "check-token":
             token(args.sandbox)
             print("There is a Zenodo token.")
+        elif args.command == "publish":
+            print(f"Published: {publish(args.sandbox, args.id)}")
         else:
-            url = upload(args.sandbox, args.new_version_of, args.dry_run)
-            if url:
+            url = upload(args.sandbox, args.new_version_of, args.dry_run, args.publish)
+            if url and args.publish:
+                print(f"\nPublished: {url}")
+            elif url:
                 print(f"\nDraft ready, NOT published. Review it, then publish it there:\n  {url}")
     except Failed as e:
         print(f"zenodo.py: {e}", file=sys.stderr)

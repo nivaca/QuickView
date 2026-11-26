@@ -38,6 +38,11 @@ las entradas llevan fecha.
 - `tools/zenodo.py`: la descripción del depósito deja fuera la línea que
   lleva a los README en otras lenguas y la sección Screenshots, cuyas
   imágenes Zenodo no muestra.
+- `packaging/release.py` publica ahora cada versión en Zenodo
+  (`tools/zenodo.py upload --publish`), en vez de dejar un borrador;
+  `--zenodo-draft` todavía lo deja. `tools/zenodo.py publish` publica un
+  borrador que ya está allí (por omisión, el que espera con el título del
+  proyecto).
 
 ## 1.0.4 — 2026-11-24
 

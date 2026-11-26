@@ -111,6 +111,8 @@ class FakeZenodo(BaseHTTPRequestHandler):
                 return self.reply(204)
             if method == "POST" and parts[4:5] == ["actions"]:
                 state["published"] = True
+                d["submitted"] = True
+                d["doi"] = f"10.5072/zenodo.{d['id']}"
                 return self.reply(202, self.deposition(d))
         if parts[:2] == ["api", "records"] and parts[3:] == ["draft"]:
             # La API de registros (InvenioRDM): el mismo borrador, con sus campos de solo lectura
@@ -346,6 +348,32 @@ class ZenodoTest(unittest.TestCase):
         self.assertNotIn("old-file", [f["id"] for f in draft["files"]])
         self.assertIn(("POST", "/api/deposit/depositions/7/actions/newversion"), state["calls"])
         self.assertFalse(state["published"])
+
+    def test_upload_with_publish_publishes_it(self):
+        self.tool.collect(None, packages=False)
+        state = self.serve({7: {"id": 7, "submitted": True, "metadata": {"title": "demo"}, "files": [],
+                                "conceptrecid": "c7"}})
+        said = self.tool.upload(sandbox=True, new_version_of=None, dry_run=False, publish=True)
+        self.assertIn(("POST", "/api/deposit/depositions/8/actions/publish"), state["calls"])
+        self.assertTrue(state["depositions"][8]["submitted"])
+        self.assertTrue(said.startswith("10.5072/zenodo.8 "))
+        # Lo de la API de registros va antes de publicar
+        calls = state["calls"]
+        self.assertLess(calls.index(("PUT", "/api/records/8/draft")),
+                        calls.index(("POST", "/api/deposit/depositions/8/actions/publish")))
+
+    def test_publish_the_waiting_draft(self):
+        state = self.serve({7: {"id": 7, "submitted": True, "metadata": {"title": "demo"}, "files": [],
+                                "conceptrecid": "c7"},
+                            8: {"id": 8, "submitted": False, "metadata": {"title": "demo"}, "files": [],
+                                "conceptrecid": "c7"}})
+        said = self.tool.publish(sandbox=True, draft_id=None)
+        self.assertEqual([c for c in state["calls"] if c[0] == "POST"],
+                         [("POST", "/api/deposit/depositions/8/actions/publish")])
+        self.assertTrue(said.startswith("10.5072/zenodo.8 "))
+        state["calls"].clear()
+        with self.assertRaisesRegex(self.tool.Failed, "no draft"):
+            self.tool.publish(sandbox=True, draft_id=None)
 
     def test_a_waiting_draft_stops_upload(self):
         self.tool.collect(None, packages=False)

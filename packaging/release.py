@@ -10,7 +10,7 @@
 
 """Makes a QuickView release, from the changelog to Copr, in one go.
 
-    packaging/release.py VERSION [--no-zenodo] [--dry-run]
+    packaging/release.py VERSION [--no-zenodo | --zenodo-draft] [--dry-run]
 
 What is released is what CHANGELOG.md lists under "## Unreleased". In
 order, stopping at the first thing that fails:
@@ -44,9 +44,9 @@ order, stopping at the first thing that fails:
    each file's detached signature against the same key, as gpg would.
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
-7. Unless --no-zenodo, uploads dist/zenodo/ to Zenodo as a draft (the token
-   in $ZENODO_TOKEN or the keyring). The draft is never published here: review it and
-   publish it on Zenodo by hand.
+7. Unless --no-zenodo, uploads dist/zenodo/ to Zenodo and publishes it, with
+   a new DOI (the token in $ZENODO_TOKEN or the keyring); with --zenodo-draft
+   it is left as a draft, to publish by hand.
 
 --dry-run does step 1 and prints what step 2 would write, the commands
 of the signed tag, the build and the signing, the files it would attach,
@@ -479,9 +479,10 @@ def main() -> int:
                     "and files, GitHub and Codeberg releases and Copr build.")
     parser.add_argument("version", help="the new version, e.g. 0.1.3")
     parser.add_argument("--no-zenodo", action="store_true",
-                        help="don't upload dist/zenodo/ to Zenodo (by default "
-                             "it goes as a draft, never published, with the "
-                             "token in $ZENODO_TOKEN or the keyring)")
+                        help="don't upload the deposit to Zenodo (by default it is uploaded and "
+                             "published, with the token in $ZENODO_TOKEN or the keyring)")
+    parser.add_argument("--zenodo-draft", action="store_true",
+                        help="upload it to Zenodo as a draft, not published")
     parser.add_argument("--dry-run", action="store_true",
                         help="check everything and show what would be "
                              "written, changing nothing")
@@ -524,8 +525,9 @@ def main() -> int:
             say("   " + shlex.join(["tools/zenodo.py", "collect", "--tag",
                                     f"v{version}"]))
             if not args.no_zenodo:
-                say("\n== Would upload it to Zenodo, as a draft:")
-                say("   tools/zenodo.py upload")
+                how = "as a draft" if args.zenodo_draft else "and publish it"
+                say(f"\n== Would upload it to Zenodo, {how}:")
+                say("   tools/zenodo.py upload" + ("" if args.zenodo_draft else " --publish"))
             say("\n== Would attach, on GitHub and on Codeberg:")
             for path in published(paths):
                 say("   " + os.path.relpath(path, ROOT))
@@ -580,8 +582,8 @@ def main() -> int:
         srpm = next(p for p in built["paths"] if p.endswith(".src.rpm"))
         copr(version, srpm)
         if not args.no_zenodo:
-            say("== Zenodo (a draft, not published)")
-            run([*zenodo, "upload"])
+            say("== Zenodo" + (" (a draft, not published)" if args.zenodo_draft else " (published)"))
+            run([*zenodo, "upload", *([] if args.zenodo_draft else ["--publish"])])
         say(f"\nReleased {version}: GitHub ({url}), Codeberg "
             f"(https://codeberg.org/{CODEBERG_REPO}/releases/tag/v{version}) "
             f"and Copr ({COPR_PROJECT}).")
