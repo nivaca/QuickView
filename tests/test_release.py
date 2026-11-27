@@ -186,7 +186,17 @@ class Notes(unittest.TestCase):
 class Signing(unittest.TestCase):
     PATHS = ["/x/build/rpm/RPMS/x86_64/quickview-0.1.3-1.fc45.x86_64.rpm",
              "/x/build/rpm/SRPMS/quickview-0.1.3-1.fc45.src.rpm",
-             "/x/dist/quickview-0.1.3.zip"]
+             "/x/build/release/quickview-0.1.3.zip"]
+
+    def test_only_the_rpms_are_kept_here(self):
+        # Las sumas y lo que se publica, salvo los RPM, van en build/release/;
+        # al final se borra eso y build/zenodo/, nunca build/rpm/ ni dist/.
+        out = os.path.join(release.ROOT, "build", "release")
+        self.assertEqual(os.path.dirname(release.SUMS), out)
+        self.assertIn(out, release.CLEANED)
+        self.assertIn(os.path.join(release.ROOT, "build", "zenodo"), release.CLEANED)
+        for kept in ("dist", os.path.join("build", "rpm")):
+            self.assertNotIn(os.path.join(release.ROOT, kept), release.CLEANED)
 
     def test_every_file_goes_with_its_signature_the_sums_and_the_key(self):
         files = release.published(self.PATHS)

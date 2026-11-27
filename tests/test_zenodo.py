@@ -7,7 +7,7 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Pruebas de tools/zenodo.py: el depósito de una versión en dist/zenodo/ (el árbol de la etiqueta, los paquetes
+"""Pruebas de tools/zenodo.py: el depósito de una versión en build/zenodo/ (el árbol de la etiqueta, los paquetes
 con sus firmas, SHA256SUMS firmado, la clave pública) y su subida como borrador, contra un Zenodo de mentira que
 corre aquí. Firman con una clave hecha para la prueba, en un GNUPGHOME temporal: nunca la del usuario."""
 
@@ -149,7 +149,7 @@ class FakeZenodo(BaseHTTPRequestHandler):
 
 @unittest.skipUnless(HAVE_TOOLS, "needs gpg and git")
 class ZenodoTest(unittest.TestCase):
-    """A project of mentira, with the tool copied into it, a signed tag and the files of a release in dist/."""
+    """A project of mentira, with the tool copied into it, a signed tag and the files of a release in build/release/."""
 
     @classmethod
     def setUpClass(cls):
@@ -205,19 +205,20 @@ class ZenodoTest(unittest.TestCase):
         return module
 
     def release_files(self):
-        """dist/ as the release leaves it: two files signed, one (the .deb) whose signature is not there, and the
-        RPM in dist/ with its signature beside the copy in build/rpm/."""
-        dist, rpms = self.root / "dist", self.root / "build" / "rpm" / "RPMS"
-        dist.mkdir()
+        """build/release/ as the release leaves it: two files signed, one (the .deb) whose signature is not there;
+        and the RPM, with its signature, in build/rpm/ only (dist/ has a copy of it, without its signature)."""
+        out, rpms = self.root / "build" / "release", self.root / "build" / "rpm" / "RPMS"
+        out.mkdir(parents=True)
         rpms.mkdir(parents=True)
         files = {"demo-1.0.zip": b"zip", "demo-1.0-x86_64.AppImage": b"appimage", "demo_1.0_all.deb": b"deb",
                  "demo-1.0-1.noarch.rpm": b"rpm"}
         for name, data in files.items():
-            (dist / name).write_bytes(data)
-        shutil.copy2(dist / "demo-1.0-1.noarch.rpm", rpms / "demo-1.0-1.noarch.rpm")
-        for path in (dist / "demo-1.0.zip", dist / "demo-1.0-x86_64.AppImage", rpms / "demo-1.0-1.noarch.rpm"):
+            (rpms if name.endswith(".rpm") else out).joinpath(name).write_bytes(data)
+        (self.root / "dist").mkdir()
+        shutil.copy2(rpms / "demo-1.0-1.noarch.rpm", self.root / "dist" / "demo-1.0-1.noarch.rpm")
+        for path in (out / "demo-1.0.zip", out / "demo-1.0-x86_64.AppImage", rpms / "demo-1.0-1.noarch.rpm"):
             self.tool.sign(path, self.fpr)
-        (dist / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(d).hexdigest()}  {n}\n" for n, d in files.items()))
+        (out / "SHA256SUMS").write_text("".join(f"{hashlib.sha256(d).hexdigest()}  {n}\n" for n, d in files.items()))
         return files
 
     # -------------------------------------------------------------- collect
@@ -259,7 +260,7 @@ class ZenodoTest(unittest.TestCase):
 
     def test_a_changed_package_stops_collect(self):
         self.release_files()
-        (self.root / "dist" / "demo-1.0.zip").write_bytes(b"zip, changed")
+        (self.root / "build" / "release" / "demo-1.0.zip").write_bytes(b"zip, changed")
         with self.assertRaisesRegex(self.tool.Failed, "demo-1.0.zip"):
             self.tool.collect("v1.0", packages=True)
         self.assertFalse(self.tool.OUT.exists())

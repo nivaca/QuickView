@@ -84,8 +84,9 @@ version, builds and signs the packages, publishes them on GitHub and on
 Codeberg, downloads them again to check the signatures as `dnf` would, and
 builds them on Copr, from where `dnf upgrade` keeps QuickView current.  An
 upgrade restarts a running daemon, so the new code runs at once.  Each
-build also leaves the RPM and a Zip bundle of the program in `dist/`.  The
-program requires Python 3.15 or later.
+build also leaves the RPM in `dist/`, and nothing else; a Zip bundle of
+the program goes to `build/release/`, which the release script deletes once
+it is published.  The program requires Python 3.15 or later.
 
 4. Space in Dolphin
 -------------------

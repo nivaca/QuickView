@@ -14,19 +14,19 @@
     python tools/zenodo.py upload [--sandbox] [--new-version-of ID] [--publish] [--dry-run]
     python tools/zenodo.py publish [--sandbox] [ID]
 
-collect reúne en dist/zenodo/ lo que se deposita de la versión (la última etiqueta, o --tag):
+collect reúne en build/zenodo/ lo que se deposita de la versión (la última etiqueta, o --tag):
 
 - NOMBRE-VERSIÓN-source.tar.gz, el árbol completo de la etiqueta (git archive), con pruebas, documentos y
   empaquetado, que es lo que se preserva;
-- con --packages, además los archivos publicados con la versión, los de dist/SHA256SUMS (rueda, AppImage,
+- con --packages, además los archivos publicados con la versión, los de build/release/SHA256SUMS (rueda, AppImage,
   RPM...), cada uno con la firma que ya tenía;
 - la firma separada de cada archivo (ARCHIVO.asc), SHA256SUMS de solo esos archivos y su firma, y la clave
   pública (packaging/RPM-GPG-KEY-NOMBRE o, en las aplicaciones de Android, GPG-KEY-NOMBRE.asc).
 
 Antes comprueba la firma de la etiqueta, y después cada firma, como lo haría quien descargue el depósito: en un
-GNUPGHOME temporal que solo tiene la clave pública. Si algo no se comprueba, no deja dist/zenodo/.
+GNUPGHOME temporal que solo tiene la clave pública. Si algo no se comprueba, no deja build/zenodo/.
 
-upload sube dist/zenodo/ a Zenodo (o a sandbox.zenodo.org, con --sandbox) con los metadatos de .zenodo.json, más
+upload sube build/zenodo/ a Zenodo (o a sandbox.zenodo.org, con --sandbox) con los metadatos de .zenodo.json, más
 la versión, la fecha de la etiqueta, los enlaces a ella en los repositorios y, como descripción, el README.md entero de
 la etiqueta, pasado a HTML. Después completa el borrador por la API de registros de Zenodo con lo que la de depósitos
 no recibe: los idiomas (las claves "languages" de .zenodo.json), el copyright (el año de la etiqueta y el primer
@@ -64,10 +64,11 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-DESCRIPTION = ("Collect a release's files for Zenodo in dist/zenodo/, signed and checked, upload them, and "
+DESCRIPTION = ("Collect a release's files for Zenodo in build/zenodo/, signed and checked, upload them, and "
                "publish them if asked.")
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "dist" / "zenodo"
+OUT = ROOT / "build" / "zenodo"
+RELEASE = ROOT / "build" / "release"  # (where packaging/release.py makes and signs what it publishes)
 METADATA = ROOT / ".zenodo.json"
 SERVERS = {False: ("https://zenodo.org", "ZENODO_TOKEN"), True: ("https://sandbox.zenodo.org", "ZENODO_SANDBOX_TOKEN")}
 # El servicio con que se guarda el token en el llavero (secret-tool), si no está en la variable
@@ -212,24 +213,25 @@ def read_sums(path: Path) -> dict[str, str]:
 
 
 def released_files(version: str) -> list[tuple[Path, Path | None]]:
-    """The files of dist/SHA256SUMS, each with its signature if it has one: [(file, file.asc or None)]. Each one
-    is looked for in dist/ and, if not there, in build/ (the RPM's signature is beside the RPM in build/rpm/),
+    """The files of build/release/SHA256SUMS, each with its signature if it has one: [(file, file.asc or None)]. Each one
+    is looked for in build/release/ and, if not there, elsewhere in build/ (the RPM and its signature are in
+    build/rpm/),
     and must have the SHA-256 written in SHA256SUMS."""
-    sums_file = ROOT / "dist" / "SHA256SUMS"
+    sums_file = RELEASE / "SHA256SUMS"
     if not sums_file.is_file():
-        raise Failed("there is no dist/SHA256SUMS (--packages takes the files of a release made here)")
+        raise Failed("there is no build/release/SHA256SUMS (--packages takes the files of a release made here)")
     sums = read_sums(sums_file)
     found = []
     for name, digest in sums.items():
-        candidates = [ROOT / "dist" / name] + sorted((ROOT / "build").rglob(name))
+        candidates = [RELEASE / name] + sorted((ROOT / "build").rglob(name))
         matching = [c for c in candidates if c.is_file() and sha256(c) == digest]
         if not matching:
-            raise Failed(f"{name}, of dist/SHA256SUMS, is not in dist/ nor build/, or has changed")
+            raise Failed(f"{name}, of build/release/SHA256SUMS, is not in build/, or has changed")
         # La firma puede estar junto a otra copia del mismo archivo (la del RPM, en build/rpm/)
         signed = next((c for c in matching if Path(f"{c}.asc").is_file()), None)
         found.append((matching[0], Path(f"{signed}.asc") if signed else None))
     if not any(version in path.name for path, _asc in found):
-        raise Failed(f"dist/SHA256SUMS is not of version {version} (make that release here first, or leave out "
+        raise Failed(f"build/release/SHA256SUMS is not of version {version} (make that release here first, or leave out "
                      "--packages)")
     return found
 
@@ -299,18 +301,18 @@ def deposit_files(out: Path = OUT) -> list[Path]:
 
 
 def check_deposit(out: Path = OUT) -> tuple[str, list[Path]]:
-    """Before uploading, dist/zenodo/ again as a user would check it: every file in SHA256SUMS with its sum, and
+    """Before uploading, build/zenodo/ again as a user would check it: every file in SHA256SUMS with its sum, and
     every signature good with the key that is in the deposit. Its version and its files."""
     sums_file, key = out / "SHA256SUMS", out / public_key().name
     if not sums_file.is_file() or not key.is_file():
-        raise Failed("dist/zenodo/ is not complete (run: tools/zenodo.py collect)")
+        raise Failed("build/zenodo/ is not complete (run: tools/zenodo.py collect)")
     sums = read_sums(sums_file)
     listed = {out / n for n in sums} | {out / f"{n}.asc" for n in sums} | {sums_file, Path(f"{sums_file}.asc"), key}
     present = set(deposit_files(out))
     if present != listed:
         extra = sorted(p.name for p in present - listed)
         missing = sorted(p.name for p in listed - present)
-        raise Failed(f"dist/zenodo/ doesn't match its SHA256SUMS (extra: {extra}, missing: {missing})")
+        raise Failed(f"build/zenodo/ doesn't match its SHA256SUMS (extra: {extra}, missing: {missing})")
     changed = [n for n, digest in sums.items() if sha256(out / n) != digest]
     if changed:
         raise Failed(f"changed after collect: {', '.join(changed)}")
@@ -319,7 +321,7 @@ def check_deposit(out: Path = OUT) -> tuple[str, list[Path]]:
         raise Failed("these don't verify with the published key:\n  " + "\n  ".join(failed))
     sources = [n for n in sums if n.endswith("-source.tar.gz")]
     if len(sources) != 1:
-        raise Failed("dist/zenodo/ has no source archive")
+        raise Failed("build/zenodo/ has no source archive")
     version = sources[0].removeprefix(f"{project_name()}-").removesuffix("-source.tar.gz")
     return version, deposit_files(out)
 
@@ -765,7 +767,7 @@ def token(sandbox: bool) -> str:
 
 
 def upload(sandbox: bool, new_version_of: str | None, dry_run: bool, publish: bool = False) -> str:
-    """dist/zenodo/ to a draft on Zenodo, published with PUBLISH; the draft's address, or the DOI and address of
+    """build/zenodo/ to a draft on Zenodo, published with PUBLISH; the draft's address, or the DOI and address of
     what was published (with DRY_RUN, nothing sent and "")."""
     version, files = check_deposit()
     data, extra = metadata(version)
@@ -809,16 +811,16 @@ def upload(sandbox: bool, new_version_of: str | None, dry_run: bool, publish: bo
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(prog="tools/zenodo.py", description=DESCRIPTION)
     commands = parser.add_subparsers(dest="command", required=True)
-    c = commands.add_parser("collect", help="put the deposit of a release in dist/zenodo/, signed and checked")
+    c = commands.add_parser("collect", help="put the deposit of a release in build/zenodo/, signed and checked")
     c.add_argument("--tag", help="the release's tag (default: the last one)")
     c.add_argument("--packages", action="store_true",
-                   help="also the files published with the release (those of dist/SHA256SUMS)")
-    u = commands.add_parser("upload", help="upload dist/zenodo/ to Zenodo as a draft, published with --publish")
+                   help="also the files published with the release (those of build/release/SHA256SUMS)")
+    u = commands.add_parser("upload", help="upload build/zenodo/ to Zenodo as a draft, published with --publish")
     u.add_argument("--sandbox", action="store_true", help="to sandbox.zenodo.org, to try it")
     u.add_argument("--new-version-of", metavar="ID", help="the deposit this is a new version of (default: the one "
                                                           "with the same title)")
     u.add_argument("--publish", action="store_true", help="publish it at the end (a DOI, which cannot be undone)")
-    u.add_argument("-n", "--dry-run", action="store_true", help="only check dist/zenodo/ and show what would go")
+    u.add_argument("-n", "--dry-run", action="store_true", help="only check build/zenodo/ and show what would go")
     p = commands.add_parser("publish", help="publish a draft already on Zenodo (ID, or the one waiting with the "
                                             "title of .zenodo.json)")
     p.add_argument("id", nargs="?", help="the draft's ID")

@@ -28,15 +28,15 @@ order, stopping at the first thing that fails:
    public half is packaging/RPM-GPG-KEY-quickview, by fingerprint — never
    another key with the same name. gpg asks for its passphrase. Then it
    signs every file to publish (packaging/sign_release.py: FILE.asc, and
-   dist/SHA256SUMS with its .asc), and checks each signature with only
-   that public key. Last, it collects the deposit for Zenodo in
-   dist/zenodo/ (tools/zenodo.py collect: the tree of the tag, signed,
+   build/release/SHA256SUMS with its .asc), and checks each signature with
+   only that public key. Last, it collects the deposit for Zenodo in
+   build/zenodo/ (tools/zenodo.py collect: the tree of the tag, signed,
    with SHA256SUMS and the public key, each signature checked).
    Up to here nothing has left this machine; if this fails, the script
    says how to undo the local commit and tag.
 4. Pushes main and the tag (origin pushes to GitHub and Codeberg);
    publishes the release on GitHub and on Codeberg, each with both RPMs,
-   the Zip bundle (dist/quickview-VERSION.zip), the signature of each,
+   the Zip bundle (build/release/quickview-VERSION.zip), the signature of each,
    SHA256SUMS and its signature, and the key, and notes made from the
    changelog, with checksums.
 5. Downloads the release back and checks its checksums, the RPMs'
@@ -44,9 +44,12 @@ order, stopping at the first thing that fails:
    each file's detached signature against the same key, as gpg would.
 6. Builds the source RPM on Copr, waits, and checks that every chroot's
    repository serves the new version.
-7. Unless --no-zenodo, uploads dist/zenodo/ to Zenodo and publishes it, with
+7. Unless --no-zenodo, uploads build/zenodo/ to Zenodo and publishes it, with
    a new DOI (the token in $ZENODO_TOKEN or the keyring); with --zenodo-draft
    it is left as a draft, to publish by hand.
+8. Deletes build/release/ and build/zenodo/: only the RPMs stay here (in
+   build/rpm/, and the binary one's copy in dist/, which holds nothing
+   else); the forges, Copr and Zenodo have the rest.
 
 --dry-run does step 1 and prints what step 2 would write, the commands
 of the signed tag, the build and the signing, the files it would attach,
@@ -74,8 +77,13 @@ SPEC = os.path.join(ROOT, "packaging", "quickview.spec")
 CHANGELOG = os.path.join(ROOT, "CHANGELOG.md")
 VERSION_FILE = os.path.join(ROOT, "version.py")
 KEY_FILE = os.path.join(ROOT, "packaging", "RPM-GPG-KEY-quickview")
+# Lo que se publica, salvo los RPM, se hace y se firma en build/release/, no en
+# dist/: aquí solo se guarda el RPM (en build/rpm/, y su copia en dist/)
+OUT = os.path.join(ROOT, "build", "release")
 # Las sumas de comprobación de lo publicado (firmadas, como cada archivo)
-SUMS = os.path.join(ROOT, "dist", "SHA256SUMS")
+SUMS = os.path.join(OUT, "SHA256SUMS")
+# Lo que se borra al final, cuando ya está publicado
+CLEANED = [OUT, os.path.join(ROOT, "build", "zenodo")]
 GITHUB_REPO = "nivaca/QuickView"
 CODEBERG_REPO = "nivaca/QuickView"
 TEA_LOGIN = "codeberg"      # (the login of tea for codeberg.org)
@@ -372,7 +380,7 @@ def expected_paths(version: str) -> list:
     return [os.path.join(ROOT, "build", "rpm", "RPMS", "x86_64",
                          f"{nvr}.x86_64.rpm"),
             os.path.join(ROOT, "build", "rpm", "SRPMS", f"{nvr}.src.rpm"),
-            os.path.join(ROOT, "dist", f"quickview-{version}.zip")]
+            os.path.join(OUT, f"quickview-{version}.zip")]
 
 
 def sign(fpr: str, paths: list):
@@ -383,13 +391,13 @@ def sign(fpr: str, paths: list):
 
 
 def build(fpr: str, version: str) -> dict:
-    """The signed RPMs and the Zip bundle build-rpm.sh leaves in dist/,
-    with their SHA-256s."""
+    """The signed RPMs (in build/rpm/) and the Zip bundle (in
+    build/release/) that build-rpm.sh makes, with their SHA-256s."""
     say("== Building and signing (gpg asks for the key's passphrase)")
     run([os.path.join(ROOT, "packaging", "build-rpm.sh"), f"--sign={fpr}"])
     found = sorted(glob.glob(os.path.join(ROOT, "build", "rpm", "RPMS", "*", "*.rpm"))
                    + glob.glob(os.path.join(ROOT, "build", "rpm", "SRPMS", "*.rpm")))
-    bundle = os.path.join(ROOT, "dist", f"quickview-{version}.zip")
+    bundle = os.path.join(OUT, f"quickview-{version}.zip")
     if not os.path.isfile(bundle):
         raise ReleaseError(f"build-rpm.sh made no {os.path.relpath(bundle, ROOT)}")
     found.append(bundle)
@@ -473,6 +481,14 @@ def copr(version: str, srpm: str):
             say(f"   {chroot}: serves {version}")
 
 
+def clean_up():
+    """Once all is published, only the RPMs stay here (build/rpm/, and the
+    binary one's copy in dist/): the forges, Copr and Zenodo have the rest."""
+    say("== Deleting what was published from build/ (only the RPMs stay)")
+    for path in CLEANED:
+        shutil.rmtree(path, ignore_errors=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Release QuickView: changelog, signed tag, signed RPMs "
@@ -528,6 +544,8 @@ def main() -> int:
                 how = "as a draft" if args.zenodo_draft else "and publish it"
                 say(f"\n== Would upload it to Zenodo, {how}:")
                 say("   tools/zenodo.py upload" + ("" if args.zenodo_draft else " --publish"))
+            say("\n== Would delete what was published from build/ (only the RPMs stay):")
+            say("   " + shlex.join(["rm", "-rf", *(os.path.relpath(d, ROOT) for d in CLEANED)]))
             say("\n== Would attach, on GitHub and on Codeberg:")
             for path in published(paths):
                 say("   " + os.path.relpath(path, ROOT))
@@ -584,6 +602,7 @@ def main() -> int:
         if not args.no_zenodo:
             say("== Zenodo" + (" (a draft, not published)" if args.zenodo_draft else " (published)"))
             run([*zenodo, "upload", *([] if args.zenodo_draft else ["--publish"])])
+        clean_up()
         say(f"\nReleased {version}: GitHub ({url}), Codeberg "
             f"(https://codeberg.org/{CODEBERG_REPO}/releases/tag/v{version}) "
             f"and Copr ({COPR_PROJECT}).")

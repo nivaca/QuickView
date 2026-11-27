@@ -20,7 +20,7 @@ las entradas llevan fecha.
 ### Nuevo
 
 - **Un depósito para Zenodo.** `tools/zenodo.py` prepara el depósito de una
-  versión en Zenodo. `collect` deja en `dist/zenodo/` el árbol de la
+  versión en Zenodo. `collect` deja en `build/zenodo/` el árbol de la
   etiqueta como `quickview-VERSIÓN-source.tar.gz`, con su firma, un
   `SHA256SUMS` del depósito, firmado, y la clave pública, y comprueba cada
   firma con solo esa clave (`--packages` añade los archivos de la versión).
@@ -43,6 +43,12 @@ las entradas llevan fecha.
   `--zenodo-draft` todavía lo deja. `tools/zenodo.py publish` publica un
   borrador que ya está allí (por omisión, el que espera con el título del
   proyecto).
+- **En `dist/` solo queda el RPM.** `packaging/build-rpm.sh` sigue copiando
+  allí el RPM binario, pero el archivo Zip va ahora a
+  `build/release/quickview-VERSIÓN.zip`. `packaging/release.py` firma y
+  publica los archivos desde `build/release/` (con `SHA256SUMS`) y el
+  depósito para Zenodo desde `build/zenodo/`, y borra las dos carpetas
+  cuando todo está publicado: los RPM quedan en `build/rpm/` y en `dist/`.
 
 ## 1.0.4 — 2026-11-24
 

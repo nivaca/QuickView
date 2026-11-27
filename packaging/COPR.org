@@ -81,7 +81,7 @@ packaging/release.py 0.1.3             # the release
   =build-rpm.sh --sign=…= using the key whose public half is
   =packaging/RPM-GPG-KEY-quickview=. gpg asks for the passphrase here.
   Then =packaging/sign_release.py= signs every file to publish (a
-  detached =FILE.asc= for each, and =dist/SHA256SUMS= with its own), and
+  detached =FILE.asc= for each, and =build/release/SHA256SUMS= with its own), and
   checks each signature the way a user would, in a keyring of its own
   with only the public key file. Nothing has been pushed yet; if any of
   this fails, it prints how to undo the local commit and tag.
@@ -90,7 +90,9 @@ packaging/release.py 0.1.3             # the release
   signature of each, =SHA256SUMS= and its signature, the key file, notes
   from the changelog with checksums), checks the downloads' checksums and
   signatures, builds the SRPM on Copr and waits until every chroot serves
-  the new version.
+  the new version. Last, after Zenodo, it deletes =build/release/= (the
+  Zip bundle, the signatures, =SHA256SUMS=) and =build/zenodo/=: only the
+  RPMs stay, in =build/rpm/= and, the binary one, in =dist/=.
 - gpg must have the key's passphrase cached if the release runs where it
   cannot ask (sign anything once first, e.g. =echo test | gpg --clearsign
   -u 81870643CA221AF90C30554EBE6832CD35994948 > /dev/null=). For GitHub to

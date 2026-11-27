@@ -19,7 +19,7 @@ project has no version tags yet, so entries are dated.
 ### Added
 
 - **A deposit for Zenodo.** `tools/zenodo.py` prepares the deposit of a
-  release for Zenodo. `collect` puts in `dist/zenodo/` the tree of the tag
+  release for Zenodo. `collect` puts in `build/zenodo/` the tree of the tag
   as `quickview-VERSION-source.tar.gz`, with its signature, a signed
   `SHA256SUMS` of the deposit and the public key, and checks every signature
   with only that key (`--packages` adds the files of the release). `upload`
@@ -41,6 +41,12 @@ project has no version tags yet, so entries are dated.
   (`tools/zenodo.py upload --publish`), instead of leaving a draft;
   `--zenodo-draft` still leaves one. `tools/zenodo.py publish` publishes a
   draft already there (by default the one waiting with the project's title).
+- **Only the RPM is kept in `dist/`.** `packaging/build-rpm.sh` still copies
+  the binary RPM there, but the Zip bundle now goes to
+  `build/release/quickview-VERSION.zip`. `packaging/release.py` signs and
+  publishes the files from `build/release/` (with `SHA256SUMS`) and the
+  deposit for Zenodo from `build/zenodo/`, and deletes both folders once
+  everything is published: the RPMs stay in `build/rpm/` and `dist/`.
 
 ## 1.0.4 — 2026-11-24
 

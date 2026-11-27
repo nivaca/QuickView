@@ -29,9 +29,10 @@
 # Needs rpm-build, plus what the spec builds with: python3-devel, rust,
 # systemd-rpm-macros and desktop-file-utils.
 #
-# The binary RPM is also copied into dist/, with a Zip bundle of the same
-# files as the source tarball (dist/quickview-VERSION.zip), each replacing
-# the older ones there.
+# The binary RPM is also copied into dist/, replacing the older ones there:
+# it is the only package kept in dist/. The Zip bundle of the same files as
+# the source tarball goes to build/release/quickview-VERSION.zip, where
+# packaging/release.py signs and publishes it (and deletes it afterwards).
 set -euo pipefail
 
 DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/.." && pwd)"
@@ -127,9 +128,9 @@ if [ "$SIGN" = 1 ]; then
     done
 fi
 
-# The newest RPM goes to dist/ too, next to the wheel, the source package and
-# the AppImage, in place of the older ones (it stays in build/rpm/ as well,
-# where the release tools look for it).
+# The newest RPM goes to dist/ too, in place of the older ones: it is all that
+# dist/ holds (it stays in build/rpm/ as well, where the release tools look
+# for it).
 mkdir -p "$DIR/dist"
 find "$DIR/dist" -maxdepth 1 -name 'quickview-*.rpm' ! -name '*.src.rpm' -delete
 for rpm in "${RPMS[@]}"; do
@@ -142,8 +143,11 @@ done
 # And a Zip bundle of the same files as the source tarball, under
 # quickview-VERSION/: unzipped, it is a checkout without git, for
 # ./install.sh on any distribution. File modes are kept, so the scripts
-# stay executable. It replaces the older bundles in dist/ too.
-find "$DIR/dist" -maxdepth 1 -name 'quickview-*.zip' -delete
+# stay executable. It goes to build/release/, not dist/, replacing the
+# older bundles there.
+RELEASE="$DIR/build/release"
+mkdir -p "$RELEASE"
+find "$RELEASE" -maxdepth 1 -name 'quickview-*.zip' -delete
 (cd "$DIR" && git ls-files -z --cached --others --exclude-standard |
     python3 -c '
 import os, sys, zipfile
@@ -153,7 +157,7 @@ names = sorted(n for n in sys.stdin.buffer.read().decode().split("\0")
 with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zf:
     for name in names:
         zf.write(name, prefix + "/" + name)
-' "$NAME" "$DIR/dist/$NAME.zip")
+' "$NAME" "$RELEASE/$NAME.zip")
 
 echo
 echo "Built:"
@@ -161,7 +165,7 @@ for rpm in "${RPMS[@]}"; do
     echo "  $rpm"
 done
 echo "Copied to dist/: $(cd "$DIR/dist" && ls quickview-*.rpm 2>/dev/null | grep -v '\.src\.rpm$' | tr '\n' ' ')"
-echo "Zip bundle: dist/$NAME.zip"
+echo "Zip bundle: build/release/$NAME.zip"
 if [ "$SIGN" = 1 ]; then
     echo "Signed by $FPR; public key: $TOP/RPM-GPG-KEY-quickview"
 fi
