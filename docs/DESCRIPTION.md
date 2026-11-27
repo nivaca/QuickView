@@ -224,9 +224,10 @@ missing.  The shadow is now switched off while an HTML page shows.
 Testing
 -------
 
-There are 506 automatic tests, in 34 files, which run in about twelve
-seconds without a display (the Qt ones run offscreen); GitHub Actions runs
-them with each push.  They cover the routing of each kind of file, the
+There are 506 automatic tests, in 34 files, which run without a display
+(the Qt ones run offscreen); GitHub Actions runs them with each push.
+`tools/test.py` runs every file in a process of its own, all at once, so
+the suite takes about as long as its slowest file, some thirteen seconds.  They cover the routing of each kind of file, the
 decoders, the jail and the checks of what comes out of it, the cache, the
 settings, the text selection, the zoom, the index sheet, the Dolphin
 shortcut and its watch (with stand-ins, so that no test sends anything on

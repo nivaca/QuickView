@@ -18,7 +18,7 @@ order, stopping at the first thing that fails:
 1. Checks, changing nothing: on main, clean, in step with origin; VERSION
    new and higher than the spec's; something under Unreleased; gh, tea
    and copr-cli logged in; rpmsign present; the signing key usable; the
-   tests and the lint passing.
+   tests (tools/test.py, all at once) and the lint passing.
 2. Bumps packaging/quickview.spec (Version, Release 1, a %changelog entry
    made from the Unreleased headlines) and renames "Unreleased" to
    "VERSION — date"; commits "Release VERSION" and tags vVERSION, locally,
@@ -335,15 +335,14 @@ def preflight(version: str, dry_run: bool) -> dict:
     say(f"   {version} after {current}; {len(lines)} change(s); key {fpr}")
 
     say("== Tests and lint")
-    env = dict(os.environ, QT_QPA_PLATFORM="offscreen")
-    tests = subprocess.run([python_for_tests(), "-m", "unittest", "discover",
-                            "-s", "tests", "-t", "."], cwd=ROOT, env=env,
-                           capture_output=True, text=True)
-    summary = [line for line in tests.stderr.splitlines()
-               if line.startswith(("Ran ", "OK", "FAILED"))]
+    # A la vez, cada archivo en un proceso propio (tools/test.py, que ya
+    # pone QT_QPA_PLATFORM=offscreen)
+    tests = subprocess.run([python_for_tests(), os.path.join(ROOT, "tools", "test.py")],
+                           cwd=ROOT, capture_output=True, text=True)
+    summary = [line for line in tests.stdout.splitlines() if line.strip()][-1:]
     say("   " + " | ".join(summary))
     if tests.returncode != 0:
-        raise ReleaseError("the tests fail:\n" + tests.stderr[-3000:])
+        raise ReleaseError("the tests fail:\n" + tests.stdout[-3000:])
     if shutil.which("uvx"):
         run(["uvx", "ruff", "check", "--select", "F", "-q", "."])
         say("   lint ok")

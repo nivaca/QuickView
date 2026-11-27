@@ -892,14 +892,27 @@ exited, by the launcher on the next preview; the modes behave the same.
 ## Tests
 
 ```bash
-.venv/bin/python -m unittest discover -s tests -t .
+.venv/bin/python tools/test.py
 ```
 
-About 500 checks, about twelve seconds, no display needed — the Qt ones run
-offscreen (from a desktop session, set `QT_QPA_PLATFORM=offscreen` yourself,
-or a few that need keyboard focus fail on a real display).
-Any way of starting them works: `discover` with or without `-s`/`-t`, from
-the repo root or from inside `tests/`, or a single file run directly.
+`tools/test.py` runs each test file in a unittest process of its own, all
+at once (as many as there are processors; `-j N` changes it, `-v` shows
+each file as it ends, and names such as `test_zoom` or `test_*pdf*` pick
+files), with its own home, temporary and runtime folders and
+`QT_QPA_PLATFORM=offscreen`. It exits with 1 if any test fails, and shows
+the output of the files that failed. About 500 checks, about thirteen
+seconds (the slowest file's time), no display needed.
+
+They also run one after the other with unittest:
+
+```bash
+QT_QPA_PLATFORM=offscreen .venv/bin/python -m unittest discover -s tests -t .
+```
+
+(From a desktop session, set `QT_QPA_PLATFORM=offscreen` yourself, or a few
+that need keyboard focus fail on a real display.) Any way of starting them
+works: `discover` with or without `-s`/`-t`, from the repo root or from
+inside `tests/`, or a single file run directly.
 
 They cover the client↔daemon wire format, the settings parser, the raw-frame
 guard that stops a malformed worker header reading past a buffer, cache
@@ -918,7 +931,7 @@ The outline cases can be pointed at a real document instead; any PDF with
 nested bookmarks, two of them on one page, will do:
 
 ```bash
-QUICKVIEW_TEST_PDF=~/any/bookmarked.pdf .venv/bin/python -m unittest discover -s tests -t .
+QUICKVIEW_TEST_PDF=~/any/bookmarked.pdf .venv/bin/python tools/test.py
 ```
 
 Only the LibreOffice cases skip, and only where LibreOffice — or, for

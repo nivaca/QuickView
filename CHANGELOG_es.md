@@ -49,6 +49,13 @@ las entradas llevan fecha.
   publica los archivos desde `build/release/` (con `SHA256SUMS`) y el
   depósito para Zenodo desde `build/zenodo/`, y borra las dos carpetas
   cuando todo está publicado: los RPM quedan en `build/rpm/` y en `dist/`.
+- **Las pruebas corren a la vez.** `tools/test.py` corre cada archivo de
+  pruebas en un proceso de unittest propio, tantos como procesadores (`-j N`
+  lo cambia), primero los más lentos, cada uno con su carpeta personal,
+  temporal y de ejecución y `QT_QPA_PLATFORM=offscreen`; sale con 1 si
+  alguna falla, con la salida de los archivos que fallaron. La suite tarda
+  lo que su archivo más lento. `packaging/release.py` y el flujo de GitHub
+  corren las pruebas con él.
 
 ## 1.0.4 — 2026-11-24
 

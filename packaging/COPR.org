@@ -74,7 +74,7 @@ packaging/release.py 0.1.3             # the release
 - It stops at the first failed check: on =main=, clean, in step with
   origin; a new, higher version; something under Unreleased; =gh= and
   =copr-cli= logged in; =rpmsign= present; the signing key usable; tests
-  and lint passing.
+  (=tools/test.py=, all at once) and lint passing.
 - Then it bumps the spec (its =%changelog= entry made from the Unreleased
   headlines), renames Unreleased to the version, commits, makes a signed
   tag (=git tag --sign=, checked with =git tag --verify=), and builds with

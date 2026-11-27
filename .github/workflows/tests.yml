@@ -51,5 +51,6 @@ jobs:
       - name: Lint
         run: pipx run ruff check --select F --output-format github .
 
+      # Each test file in a process of its own, all at once (tools/test.py)
       - name: Run tests
-        run: python -m unittest discover -v -s tests -t .
+        run: python tools/test.py -v

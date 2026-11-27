@@ -47,6 +47,13 @@ project has no version tags yet, so entries are dated.
   publishes the files from `build/release/` (with `SHA256SUMS`) and the
   deposit for Zenodo from `build/zenodo/`, and deletes both folders once
   everything is published: the RPMs stay in `build/rpm/` and `dist/`.
+- **The tests run at once.** `tools/test.py` runs each test file in a
+  unittest process of its own, as many as there are processors (`-j N`
+  changes it), the slowest first, each with its own home, temporary and
+  runtime folders and `QT_QPA_PLATFORM=offscreen`; it exits with 1 if any
+  fails, with the output of the files that failed. The suite takes about
+  as long as its slowest file. `packaging/release.py` and the GitHub
+  workflow run the tests with it.
 
 ## 1.0.4 — 2026-11-24
 
