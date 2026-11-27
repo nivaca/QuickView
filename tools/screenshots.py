@@ -8,40 +8,41 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Takes the screenshots of the README: the panel previewing a PDF, an
-image and a source file, the breeze theme with a PDF's contents open, and
-the settings window.
+"""Toma las capturas del README: el panel con la vista previa de un PDF, una
+imagen y un archivo de código fuente, el tema breeze con el índice de un PDF
+abierto, y la ventana de ajustes.
 
     .venv/bin/python tools/screenshots.py [-o FOLDER] [--scale 2]
         [--only pdf,image,code,breeze,settings] [--pdf FILE] [--page N]
         [--image FILE] [--scheme dark|light]
 
-It writes FOLDER/KIND.png (by default in docs/screenshots/, where the README
-takes them from), at SCALE times the size of the screen (2 by default,
-sharp on screens of high resolution).
+Escribe FOLDER/KIND.png (por omisión en docs/screenshots/, de donde las toma
+el README), a SCALE veces el tamaño de la pantalla (2 por omisión, nítidas en
+pantallas de alta resolución).
 
-QuickView runs in this very process, on Qt's offscreen platform with a
-screen of its own (1920×1200 at SCALE): nothing is shown on the real
-screen and no display is needed. Only the panel is captured, rounded
-corners and all, never a desktop around it. Settings, cache and logs live
-in a temporary folder, so the user's are not touched. The files are
-previewed by the same jailed workers as always, so the shots show what
-QuickView really renders — which needs bubblewrap, as QuickView does.
+QuickView corre en este mismo proceso, en la plataforma offscreen de Qt, con
+una pantalla propia (1920×1200 a SCALE): nada se muestra en la pantalla real
+y no hace falta ningún display. Solo se captura el panel, con sus esquinas
+redondeadas, nunca un escritorio alrededor. Los ajustes, la caché y los
+registros viven en una carpeta temporal, así que los del usuario no se tocan.
+Los archivos los muestran los mismos trabajadores aislados de siempre, de
+modo que las capturas enseñan lo que QuickView dibuja de verdad; para eso
+hace falta bubblewrap, como para QuickView.
 
-The samples come from the system's own packages, so the shots can be
-taken again anywhere:
+Las muestras vienen de los paquetes del propio sistema, para que las capturas
+puedan tomarse de nuevo en cualquier parte:
 
-* the PDF is Ghostscript's colour management manual if ghostscript-doc is
-  installed, else hwloc's manual (it has bookmarks, for the contents
-  sidebar of the breeze shot), opened on its first chapter rather than
-  on a cover that is nearly blank; --pdf names another, --page the page
-  to show;
-* the image is KDE's Next wallpaper (--image names another);
-* the source file is quickview.py itself.
+* el PDF es el manual de gestión del color de Ghostscript si está instalado
+  ghostscript-doc, y si no el manual de hwloc (tiene marcadores, para la
+  barra lateral del índice en la captura breeze), abierto en su primer
+  capítulo y no en una portada casi en blanco; --pdf nombra otro, --page la
+  página que se muestra;
+* la imagen es el fondo de pantalla Next de KDE (--image nombra otra);
+* el archivo fuente es el propio quickview.py.
 
-The breeze shot and the settings window take their colours from a Plasma
-colour scheme file — Breeze Dark by default, --scheme light for Breeze
-Light — rather than from whatever scheme this desktop happens to use.
+La captura breeze y la ventana de ajustes toman sus colores de un archivo de
+esquema de colores de Plasma (Breeze Dark por omisión, --scheme light para
+Breeze Light) y no del esquema que tenga este escritorio.
 """
 
 import argparse

@@ -8,52 +8,53 @@
 # option) any later version. This program is distributed WITHOUT ANY
 # WARRANTY; see the LICENSE file, or <https://www.gnu.org/licenses/>.
 
-"""Makes a QuickView release, from the changelog to Copr, in one go.
+"""Publica una versión de QuickView, del registro de cambios a Copr, de una vez.
 
     packaging/release.py VERSION [--no-zenodo | --zenodo-draft] [--dry-run]
 
-What is released is what CHANGELOG.md lists under "## Unreleased". In
-order, stopping at the first thing that fails:
+Lo que se publica es lo que CHANGELOG.md tiene bajo "## Unreleased". En orden,
+y deteniéndose en lo primero que falle:
 
-1. Checks, changing nothing: on main, clean, in step with origin; VERSION
-   new and higher than the spec's; something under Unreleased; gh, tea
-   and copr-cli logged in; rpmsign present; the signing key usable; the
-   tests (tools/test.py, all at once) and the lint passing.
-2. Bumps packaging/quickview.spec (Version, Release 1, a %changelog entry
-   made from the Unreleased headlines) and renames "Unreleased" to
-   "VERSION — date"; commits "Release VERSION" and tags vVERSION, locally,
-   with a tag signed by the key (git tag --sign), which it then checks
-   (git tag --verify).
-3. Builds the RPMs with build-rpm.sh --sign. The key is the one whose
-   public half is packaging/RPM-GPG-KEY-quickview, by fingerprint — never
-   another key with the same name. gpg asks for its passphrase. Then it
-   signs every file to publish (packaging/sign_release.py: FILE.asc, and
-   build/release/SHA256SUMS with its .asc), and checks each signature with
-   only that public key. Last, it collects the deposit for Zenodo in
-   build/zenodo/ (tools/zenodo.py collect: the tree of the tag, signed,
-   with SHA256SUMS and the public key, each signature checked).
-   Up to here nothing has left this machine; if this fails, the script
-   says how to undo the local commit and tag.
-4. Pushes main and the tag (origin pushes to GitHub and Codeberg);
-   publishes the release on GitHub and on Codeberg, each with both RPMs,
-   the Zip bundle (build/release/quickview-VERSION.zip), the signature of each,
-   SHA256SUMS and its signature, and the key, and notes made from the
-   changelog, with checksums.
-5. Downloads the release back and checks its checksums, the RPMs'
-   signatures against its own key file, the way a user's dnf would, and
-   each file's detached signature against the same key, as gpg would.
-6. Builds the source RPM on Copr, waits, and checks that every chroot's
-   repository serves the new version.
-7. Unless --no-zenodo, uploads build/zenodo/ to Zenodo and publishes it, with
-   a new DOI (the token in $ZENODO_TOKEN or the keyring); with --zenodo-draft
-   it is left as a draft, to publish by hand.
-8. Deletes build/release/ and build/zenodo/: only the RPMs stay here (in
-   build/rpm/, and the binary one's copy in dist/, which holds nothing
-   else); the forges, Copr and Zenodo have the rest.
+1. Comprueba, sin cambiar nada: que está en main, limpio y al día con origin;
+   que VERSION es nueva y mayor que la del spec; que hay algo bajo Unreleased;
+   que gh, tea y copr-cli tienen la sesión abierta; que rpmsign está; que la
+   clave de firma se puede usar; que las pruebas (tools/test.py, todas a la
+   vez) y el lint pasan.
+2. Sube la versión de packaging/quickview.spec (Version, Release 1, una
+   entrada de %changelog hecha con los titulares de Unreleased) y cambia
+   "Unreleased" por "VERSION — fecha"; hace el commit "Release VERSION" y pone
+   la etiqueta vVERSION, en local, firmada con la clave (git tag --sign), que
+   luego comprueba (git tag --verify).
+3. Construye los RPM con build-rpm.sh --sign. La clave es aquella cuya mitad
+   pública es packaging/RPM-GPG-KEY-quickview, por su huella, nunca otra clave
+   con el mismo nombre. gpg pide su frase de contraseña. Luego firma cada
+   archivo que se va a publicar (packaging/sign_release.py: FILE.asc, y
+   build/release/SHA256SUMS con su .asc) y comprueba cada firma solo con esa
+   clave pública. Por último reúne el depósito para Zenodo en build/zenodo/
+   (tools/zenodo.py collect: el árbol de la etiqueta, firmado, con SHA256SUMS
+   y la clave pública, cada firma comprobada).
+   Hasta aquí nada ha salido de esta máquina; si algo falla, el script dice
+   cómo deshacer el commit y la etiqueta locales.
+4. Sube main y la etiqueta (origin sube a GitHub y a Codeberg); publica la
+   versión en GitHub y en Codeberg, cada una con los dos RPM, el zip
+   (build/release/quickview-VERSION.zip), la firma de cada uno, SHA256SUMS y
+   su firma, y la clave, y con notas hechas del registro de cambios, con las
+   sumas de comprobación.
+5. Vuelve a descargar la versión y comprueba sus sumas, las firmas de los RPM
+   contra su propio archivo de clave, como lo haría el dnf de un usuario, y la
+   firma separada de cada archivo contra la misma clave, como lo haría gpg.
+6. Construye el RPM fuente en Copr, espera y comprueba que el repositorio de
+   cada chroot sirve la versión nueva.
+7. Salvo con --no-zenodo, sube build/zenodo/ a Zenodo y lo publica, con un DOI
+   nuevo (el token de $ZENODO_TOKEN o del llavero); con --zenodo-draft queda
+   como borrador, para publicarlo a mano.
+8. Borra build/release/ y build/zenodo/: aquí solo se quedan los RPM (en
+   build/rpm/, y la copia del binario en dist/, que no guarda nada más); las
+   forjas, Copr y Zenodo tienen el resto.
 
---dry-run does step 1 and prints what step 2 would write, the commands
-of the signed tag, the build and the signing, the files it would attach,
-the notes, and the steps for Zenodo.
+--dry-run hace el paso 1 y escribe lo que escribiría el paso 2, las órdenes
+de la etiqueta firmada, de la construcción y de la firma, los archivos que
+adjuntaría, las notas y los pasos de Zenodo.
 """
 
 import argparse
